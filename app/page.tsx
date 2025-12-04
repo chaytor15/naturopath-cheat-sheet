@@ -467,17 +467,16 @@ export default function HomePage() {
 
         {/* CLIENT DETAILS + TONIC DETAILS + WORKSPACE */}
         <section className="mb-10 grid gap-6 md:grid-cols-3">
-          {/* CLIENT DETAILS */}
-<div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-  {/* header strip */}
-  <div className="flex items-center justify-between bg-[#f2f5ee] px-6 py-4">
-  <h2 className="text-base font-semibold text-[#344e41]">
-      Client Details
-    </h2>
-  <span className="text-[11px] tracking-[0.25em] uppercase text-[#a3b18a]">
-      Intake
-    </span>
-  </div>
+                           {/* CLIENT DETAILS */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold tracking-wide text-[#8abf9b]">
+                Client Details
+              </h2>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-slate-400">
+                Intake
+              </span>
+            </div>
 
             <div className="grid gap-3">
               <div>
@@ -527,6 +526,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
 
           {/* TONIC DETAILS */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
