@@ -9,3 +9,43 @@ body {
 }
 
 /* keep your helpers here (scrollbar, slide-in, cell-2-lines, etc.) */
+/* ===== HERO GRADIENT LAYER ===== */
+.hero-gradient {
+  position: absolute;
+  inset: -200px 0 0 0;
+  z-index: -1;
+
+  /* Stronger, visible SaaS-style glow */
+  background:
+    radial-gradient(circle at 50% 0%, rgba(142, 208, 129, 0.45), transparent 70%),
+    radial-gradient(circle at 80% 30%, rgba(180, 210, 186, 0.40), transparent 70%),
+    radial-gradient(circle at 20% 60%, rgba(181, 127, 80, 0.25), transparent 75%);
+
+  filter: blur(80px);
+  opacity: 0.9;
+  animation: gradientShift 16s ease-in-out infinite alternate;
+}
+
+@keyframes gradientShift {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+  100% {
+    transform: translateY(10px) scale(1.03);
+  }
+}
+
+@keyframes gradientShift {
+  0% {
+    transform: translate3d(-10px, 10px, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10px, -5px, 0) scale(1.03);
+  }
+  100% {
+    transform: translate3d(-5px, -10px, 0) scale(1.02);
+  }
+}

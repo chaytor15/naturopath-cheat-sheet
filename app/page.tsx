@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type BodySystemOption = {
   value: string;
@@ -38,7 +38,7 @@ type WorkspaceHerb = {
 };
 
 function formatDose(row: HerbRow): string {
-  const unit = row.doseUnit ?? 'mL';
+  const unit = row.doseUnit ?? "mL";
 
   const min =
     row.doseMinMl != null ? Math.round(Number(row.doseMinMl)) : null;
@@ -57,7 +57,7 @@ function formatDose(row: HerbRow): string {
     return row.therapeuticDosage;
   }
 
-  return '';
+  return "";
 }
 
 /**
@@ -132,9 +132,9 @@ function isDoseWithinBottleRange(
 
 export default function HomePage() {
   const [bodySystems, setBodySystems] = useState<BodySystemOption[]>([]);
-  const [selectedBodySystem, setSelectedBodySystem] = useState<string>('');
+  const [selectedBodySystem, setSelectedBodySystem] = useState<string>("");
   const [conditions, setConditions] = useState<Condition[]>([]);
-  const [selectedConditionId, setSelectedConditionId] = useState<string>('');
+  const [selectedConditionId, setSelectedConditionId] = useState<string>("");
   const [herbRows, setHerbRows] = useState<HerbRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,18 +142,18 @@ export default function HomePage() {
   const [selectedHerb, setSelectedHerb] = useState<HerbRow | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  const [clientName, setClientName] = useState('');
-  const [tonicPurpose, setTonicPurpose] = useState('');
-  const [medications, setMedications] = useState('');
-  const [existingConditionsText, setExistingConditionsText] = useState('');
+  const [clientName, setClientName] = useState("");
+  const [tonicPurpose, setTonicPurpose] = useState("");
+  const [medications, setMedications] = useState("");
+  const [existingConditionsText, setExistingConditionsText] = useState("");
 
   // NEW tonic-level fields
-  const [tonicName, setTonicName] = useState('');
-  const [patientInstructions, setPatientInstructions] = useState('');
+  const [tonicName, setTonicName] = useState("");
+  const [patientInstructions, setPatientInstructions] = useState("");
 
-  const [bottleSize, setBottleSize] = useState<'100' | '200' | '500' | ''>('');
-  const [doseMl, setDoseMl] = useState<string>(''); // numeric string
-  const [frequencyPerDay, setFrequencyPerDay] = useState<string>(''); // numeric string
+  const [bottleSize, setBottleSize] = useState<"100" | "200" | "500" | "">("");
+  const [doseMl, setDoseMl] = useState<string>(""); // numeric string
+  const [frequencyPerDay, setFrequencyPerDay] = useState<string>(""); // numeric string
 
   const [workspaceHerbs, setWorkspaceHerbs] = useState<WorkspaceHerb[]>([]);
 
@@ -161,7 +161,7 @@ export default function HomePage() {
   const [mlModalOpen, setMlModalOpen] = useState(false);
   const [mlModalHerb, setMlModalHerb] = useState<HerbRow | null>(null);
   const [mlModalIndex, setMlModalIndex] = useState<number | null>(null);
-  const [mlModalValue, setMlModalValue] = useState<string>('');
+  const [mlModalValue, setMlModalValue] = useState<string>("");
 
   // Styled error modal when bottle size / dose / frequency aren't set
   const [bottleConfigErrorOpen, setBottleConfigErrorOpen] = useState(false);
@@ -224,13 +224,13 @@ export default function HomePage() {
   useEffect(() => {
     const fetchBodySystems = async () => {
       const { data, error } = await supabase
-        .from('conditions')
-        .select('body_system')
-        .not('body_system', 'is', null);
+        .from("conditions")
+        .select("body_system")
+        .not("body_system", "is", null);
 
       if (error) {
         console.error(error);
-        setError('Could not load body systems.');
+        setError("Could not load body systems.");
         return;
       }
 
@@ -248,7 +248,7 @@ export default function HomePage() {
   useEffect(() => {
     if (!selectedBodySystem) {
       setConditions([]);
-      setSelectedConditionId('');
+      setSelectedConditionId("");
       setHerbRows([]);
       // workspaceHerbs persists
       return;
@@ -256,19 +256,19 @@ export default function HomePage() {
 
     const load = async () => {
       const { data, error } = await supabase
-        .from('conditions')
-        .select('id, name')
-        .eq('body_system', selectedBodySystem)
-        .order('name');
+        .from("conditions")
+        .select("id, name")
+        .eq("body_system", selectedBodySystem)
+        .order("name");
 
       if (error) {
         console.error(error);
-        setError('Could not load health concerns.');
+        setError("Could not load health concerns.");
         return;
       }
 
       setConditions(data ?? []);
-      setSelectedConditionId('');
+      setSelectedConditionId("");
       setHerbRows([]);
       // workspaceHerbs persists
     };
@@ -289,7 +289,7 @@ export default function HomePage() {
       setError(null);
 
       const { data, error } = await supabase
-        .from('condition_herbs')
+        .from("condition_herbs")
         .select(
           `
           id,
@@ -309,13 +309,13 @@ export default function HomePage() {
           )
         `
         )
-        .eq('condition_id', selectedConditionId);
+        .eq("condition_id", selectedConditionId);
 
       setLoading(false);
 
       if (error) {
         console.error(error);
-        setError('Could not load herbs for this concern.');
+        setError("Could not load herbs for this concern.");
         return;
       }
 
@@ -361,7 +361,7 @@ export default function HomePage() {
 
     setMlModalHerb(herb);
     setMlModalIndex(null);
-    setMlModalValue('');
+    setMlModalValue("");
     setMlModalOpen(true);
   };
 
@@ -394,7 +394,7 @@ export default function HomePage() {
     const ml = Math.round(mlRaw);
 
     if (Number.isNaN(mlRaw) || mlRaw <= 0 || ml <= 0) {
-      window.alert('Please enter a valid mL amount (whole number).');
+      window.alert("Please enter a valid mL amount (whole number).");
       return;
     }
 
@@ -423,43 +423,42 @@ export default function HomePage() {
     setMlModalOpen(false);
     setMlModalHerb(null);
     setMlModalIndex(null);
-    setMlModalValue('');
+    setMlModalValue("");
   };
 
   const handleCloseMlModal = () => {
     setMlModalOpen(false);
     setMlModalHerb(null);
     setMlModalIndex(null);
-    setMlModalValue('');
+    setMlModalValue("");
   };
 
   const roundedTotalWorkspaceMl = Math.round(totalWorkspaceMl);
   const roundedFillPercent = Math.round(bottleFillPercentRaw);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50 bg-[radial-gradient(circle_at_top,_#0f172a,_#020617)]">
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="max-w-6xl mx-auto py-10 px-4">
         {/* HEADER */}
-        
         <header className="mb-8">
           <div className="flex items-center justify-between gap-4 mb-2">
             <div>
               <div className="inline-flex items-center gap-2 mb-2">
-                <span className="text-[10px] uppercase tracking-[0.18em] bg-emerald-500/10 text-emerald-300 border border-emerald-500/40 rounded-full px-2 py-0.5">
+                <span className="text-[10px] uppercase tracking-[0.18em] bg-[#8ED08133] text-[#4B543B] border border-[#8ED08166] rounded-full px-2 py-0.5">
                   Prototype
                 </span>
                 {selectedCondition && (
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500">
                     {selectedCondition.name}
                   </span>
                 )}
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight text-[#4B543B]">
                 tonic.
               </h1>
             </div>
           </div>
-          <p className="mt-2 text-[11px] text-amber-300/90 max-w-xl border-l border-amber-500/40 pl-3">
+          <p className="mt-2 text-[11px] text-amber-800 max-w-xl border-l border-amber-300 pl-3 bg-amber-50/60 py-1">
             Educational prototype only. This does not replace individual
             assessment, diagnosis or treatment. Always use clinical judgement
             and follow local regulations.
@@ -469,23 +468,24 @@ export default function HomePage() {
         {/* CLIENT DETAILS + TONIC DETAILS + WORKSPACE */}
         <section className="mb-10 grid gap-6 md:grid-cols-3">
           {/* CLIENT DETAILS */}
-          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur-sm p-4 space-y-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold tracking-wide text-slate-100">
-                Client Details
-              </h2>
-              <span className="text-[10px] uppercase tracking-[0.15em] text-slate-400">
-                Intake
-              </span>
-            </div>
+<div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+  {/* header strip */}
+  <div className="flex items-center justify-between bg-[#f2f5ee] px-6 py-4">
+  <h2 className="text-base font-semibold text-[#344e41]">
+      Client Details
+    </h2>
+  <span className="text-[11px] tracking-[0.25em] uppercase text-[#a3b18a]">
+      Intake
+    </span>
+  </div>
 
             <div className="grid gap-3">
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Client Name
                 </label>
                 <input
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   placeholder="e.g. Jamie Smith"
@@ -493,11 +493,11 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Tonic Purpose
                 </label>
                 <input
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={tonicPurpose}
                   onChange={(e) => setTonicPurpose(e.target.value)}
                   placeholder="e.g. Sleep support, stress, digestion"
@@ -505,22 +505,22 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Medications
                 </label>
                 <textarea
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={medications}
                   onChange={(e) => setMedications(e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Existing Conditions
                 </label>
                 <textarea
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={existingConditionsText}
                   onChange={(e) => setExistingConditionsText(e.target.value)}
                 />
@@ -528,10 +528,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* TONIC DETAILS (new middle column) */}
-          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur-sm p-4 space-y-4 shadow-lg">
+          {/* TONIC DETAILS */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold tracking-wide text-slate-100">
+              <h2 className="text-sm font-semibold tracking-wide text-[#8abf9b]">
                 Tonic Details
               </h2>
               <span className="text-[10px] uppercase tracking-[0.15em] text-slate-400">
@@ -541,29 +541,29 @@ export default function HomePage() {
 
             <div className="grid gap-3">
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Tonic Name
                 </label>
                 <input
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={tonicName}
                   onChange={(e) => setTonicName(e.target.value)}
                   placeholder="e.g. Sleep Support Tonic"
                 />
               </div>
 
-              {/* Bottle size + dose + frequency now live here */}
+              {/* Bottle size + dose + frequency */}
               <div className="grid gap-3 md:grid-cols-3 max-w-full">
                 <div>
-                  <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                     Bottle Size
                   </label>
                   <select
-                    className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                     value={bottleSize}
                     onChange={(e) =>
                       setBottleSize(
-                        e.target.value as '100' | '200' | '500' | ''
+                        e.target.value as "100" | "200" | "500" | ""
                       )
                     }
                   >
@@ -575,13 +575,13 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                     Dose (per serve)
                   </label>
                   <input
                     type="number"
                     min={0}
-                    className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                     value={doseMl}
                     onChange={(e) => setDoseMl(e.target.value)}
                     placeholder="e.g. 5mL"
@@ -589,13 +589,13 @@ export default function HomePage() {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                     Frequency per day
                   </label>
                   <input
                     type="number"
                     min={0}
-                    className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                     value={frequencyPerDay}
                     onChange={(e) => setFrequencyPerDay(e.target.value)}
                     placeholder="e.g. 2 times"
@@ -604,11 +604,11 @@ export default function HomePage() {
               </div>
 
               <div>
-                <label className="block text-[11px] mb-1 text-slate-300 font-medium">
+                <label className="block text-[11px] mb-1 text-slate-700 font-medium">
                   Patient Instructions
                 </label>
                 <textarea
-                  className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                   value={patientInstructions}
                   onChange={(e) => setPatientInstructions(e.target.value)}
                   placeholder="e.g. Take 5 mL in water, 2 times daily away from food."
@@ -618,9 +618,9 @@ export default function HomePage() {
           </div>
 
           {/* WORKSPACE */}
-          <div className="rounded-2xl border border-slate-800/70 bg-slate-900/70 backdrop-blur-sm p-4 space-y-4 shadow-lg">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 space-y-4 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold tracking-wide text-slate-100">
+              <h2 className="text-sm font-semibold tracking-wide text-[#8abf9b]">
                 Workspace
               </h2>
               <span className="text-[10px] uppercase tracking-[0.15em] text-slate-400">
@@ -633,22 +633,22 @@ export default function HomePage() {
               <div className="flex flex-col items-center">
                 <div className="flex flex-col items-center">
                   {/* Cap */}
-                  <div className="h-4 w-10 bg-slate-950 border border-slate-700 rounded-t-md rounded-b-sm" />
+                  <div className="h-4 w-10 bg-[#142200] border border-slate-400 rounded-t-md rounded-b-sm" />
                   {/* Neck */}
-                  <div className="h-4 w-8 bg-slate-950 border-x border-b border-slate-700" />
-                  {/* Bottle body (fixed size) */}
-                  <div className="relative h-32 w-16 bg-slate-950 border border-slate-700 rounded-t-xl rounded-b-3xl overflow-hidden">
+                  <div className="h-4 w-8 bg-[#142200] border-x border-b border-slate-400" />
+                  {/* Bottle body */}
+                  <div className="relative h-32 w-16 bg-[#DCE2AA] border border-slate-400 rounded-t-xl rounded-b-3xl overflow-hidden">
                     {/* Liquid fill */}
                     <div
                       className={`absolute bottom-0 left-0 right-0 transition-all duration-300 ease-out ${
-                        isOverfilled ? 'bg-red-500/80' : 'bg-emerald-500/80'
+                        isOverfilled ? "bg-red-500/80" : "bg-[#72b01d]"
                       }`}
                       style={{ height: `${bottleFillPercent}%` }}
                     />
-                    {/* Label band – only bottle size */}
-                    <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-slate-950/85 border border-slate-600 rounded-md flex items-center justify-center px-1">
-                      <span className="text-[9px] text-slate-50/90 truncate text-center">
-                        {bottleVolumeMl ? `${bottleVolumeMl} mL` : 'Bottle size'}
+                    {/* Label band */}
+                    <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-white/90 border border-slate-300 rounded-md flex items-center justify-center px-1">
+                      <span className="text-[9px] text-slate-700 truncate text-center">
+                        {bottleVolumeMl ? `${bottleVolumeMl} mL` : "Bottle size"}
                       </span>
                     </div>
                   </div>
@@ -657,32 +657,32 @@ export default function HomePage() {
 
               {/* Right-hand stats */}
               <div className="text-xs space-y-1">
-                <p className="text-slate-200">
-                  Total volume:{' '}
-                  <span className="font-semibold text-emerald-300">
+                <p className="text-slate-800">
+                  Total volume:{" "}
+                  <span className="font-semibold text-[#4B543B]">
                     {roundedTotalWorkspaceMl} mL
                   </span>
                 </p>
-                <p className="text-slate-200">
-                  Fill:{' '}
+                <p className="text-slate-800">
+                  Fill:{" "}
                   <span
                     className={`font-semibold ${
-                      isOverfilled ? 'text-red-300' : 'text-emerald-300'
+                      isOverfilled ? "text-red-600" : "text-[#4B543B]"
                     }`}
                   >
-                    {bottleVolumeMl ? `${roundedFillPercent}%` : '—'}
+                    {bottleVolumeMl ? `${roundedFillPercent}%` : "—"}
                   </span>
                 </p>
-                <p className="text-slate-200">
-                  Dose:{' '}
-                  <span className="font-semibold text-slate-100">
+                <p className="text-slate-800">
+                  Dose:{" "}
+                  <span className="font-semibold text-slate-900">
                     {dailyDoseMl > 0
                       ? `${numericDose} mL × ${numericFrequency} times daily`
-                      : '—'}
+                      : "—"}
                   </span>
                 </p>
                 {isOverfilled && (
-                  <p className="text-[11px] text-red-300">
+                  <p className="text-[11px] text-red-600">
                     Overfilled (&gt;{bottleVolumeMl} mL). Adjust volumes.
                   </p>
                 )}
@@ -690,31 +690,31 @@ export default function HomePage() {
             </div>
 
             {/* Workspace Herbs */}
-            <div className="mt-2 border-t border-slate-800 pt-3">
-              <h3 className="text-[11px] font-semibold text-slate-200 mb-2 uppercase tracking-[0.16em]">
+            <div className="mt-2 border-t border-slate-200 pt-3">
+              <h3 className="text-[11px] font-semibold text-slate-800 mb-2 uppercase tracking-[0.16em]">
                 Herbs in Tonic
               </h3>
 
               {workspaceHerbs.length === 0 ? (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   No herbs yet. Use <b>+ Add</b> in the table below to start
                   building your formula.
                 </p>
               ) : (
                 <div className="max-h-48 overflow-y-auto pr-3">
                   <table className="w-full text-[11px] border-collapse">
-                    <thead className="sticky top-0 bg-slate-950/95 backdrop-blur-sm">
+                    <thead className="sticky top-0 bg-slate-100/95 backdrop-blur-sm">
                       <tr>
-                        <th className="text-left py-1 pr-2 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-[0.14em]">
+                        <th className="text-left py-1 pr-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em]">
                           Herb
                         </th>
-                        <th className="text-left py-1 px-2 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-[0.14em]">
+                        <th className="text-left py-1 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em]">
                           mL in bottle
                         </th>
-                        <th className="text-left py-1 px-2 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-[0.14em]">
+                        <th className="text-left py-1 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em]">
                           Therapeutic range for bottle
                         </th>
-                        <th className="text-left py-1 pl-2 border-b border-slate-800 text-slate-300 text-[10px] uppercase tracking-[0.14em]">
+                        <th className="text-left py-1 pl-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em]">
                           Remove
                         </th>
                       </tr>
@@ -763,17 +763,17 @@ export default function HomePage() {
                             key={`${item.herb.id}-${index}`}
                             className={
                               item.withinRange === null
-                                ? 'bg-slate-950/50'
+                                ? "bg-slate-50"
                                 : item.withinRange
-                                ? 'bg-emerald-500/10'
-                                : 'bg-red-500/10'
+                                ? "bg-[#8ED08133]"
+                                : "bg-red-50"
                             }
                           >
                             <td className="py-1 pr-2 align-top">
-                              <div className="font-medium text-slate-100">
+                              <div className="font-medium text-slate-900">
                                 {item.herb.herbName}
                               </div>
-                              <div className="italic text-[10px] text-slate-300">
+                              <div className="italic text-[10px] text-slate-600">
                                 {item.herb.latinName}
                               </div>
                             </td>
@@ -781,7 +781,7 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => handleEditWorkspaceHerbMl(index)}
-                                className="underline decoration-dotted underline-offset-2 hover:text-emerald-300"
+                                className="underline decoration-dotted underline-offset-2 hover:text-[#4B543B]"
                               >
                                 {roundedMl} mL
                               </button>
@@ -793,7 +793,7 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => handleRemoveWorkspaceHerb(index)}
-                                className="text-[10px] px-2 py-0.5 rounded-md border border-slate-700 hover:bg-slate-800 text-slate-200"
+                                className="text-[10px] px-2 py-0.5 rounded-md border border-slate-300 hover:bg-slate-100 text-slate-700"
                               >
                                 Remove
                               </button>
@@ -806,27 +806,27 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* Dose colour legend under Herbs in Tonic */}
-              <div className="mt-2 text-[11px] text-slate-400 flex items-center gap-2">
-                <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />{' '}
+              {/* Dose colour legend */}
+              <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-full bg-[#8ED081]" />{" "}
                 in range
-                <span className="inline-block h-2 w-2 rounded-full bg-red-500" />{' '}
+                <span className="inline-block h-2 w-2 rounded-full bg-red-500" />{" "}
                 out of range
               </div>
             </div>
           </div>
         </section>
 
-        {/* BODY SYSTEM + CONDITION (side by side) */}
+        {/* BODY SYSTEM + CONDITION */}
         <section className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Body System */}
             <div>
-              <label className="block text-sm mb-1 text-slate-200">
+              <label className="block text-sm mb-1 text-slate-800">
                 Body System
               </label>
               <select
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400"
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d]"
                 value={selectedBodySystem}
                 onChange={(e) => setSelectedBodySystem(e.target.value)}
               >
@@ -841,19 +841,19 @@ export default function HomePage() {
 
             {/* Health Concern */}
             <div>
-              <label className="block text-sm mb-1 text-slate-200">
+              <label className="block text-sm mb-1 text-slate-800">
                 Health Concern
               </label>
               <select
-                className="w-full bg-slate-900/80 border border-slate-700 rounded-md px-3 py-2 text-sm text-slate-50 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400 disabled:opacity-50"
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d] disabled:opacity-50"
                 value={selectedConditionId}
                 onChange={(e) => setSelectedConditionId(e.target.value)}
                 disabled={!selectedBodySystem}
               >
                 <option value="">
                   {selectedBodySystem
-                    ? 'Select...'
-                    : 'Select body system first...'}
+                    ? "Select..."
+                    : "Select body system first..."}
                 </option>
                 {conditions.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -867,45 +867,44 @@ export default function HomePage() {
 
         {/* HERB TABLE */}
         {error && (
-          <p className="text-sm text-amber-300 mb-4 bg-amber-500/10 border border-amber-500/40 rounded-md px-3 py-2">
+          <p className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
             {error}
           </p>
         )}
 
         {loading && (
-          <p className="text-sm text-slate-300 mb-4">Loading herbs...</p>
+          <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
         )}
 
         {selectedConditionId && herbRows.length > 0 && (
-          <div className="rounded-2xl border border-slate-800/70 bg-slate-950/70 mt-4 shadow-xl overflow-hidden backdrop-blur-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white mt-4 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <div className="max-h-[480px] overflow-y-auto pr-3">
                 <table className="min-w-full text-xs md:text-sm border-collapse">
-                  <thead className="bg-slate-900/95 backdrop-blur-sm sticky top-0 z-10">
+                  <thead className="bg-slate-100/95 backdrop-blur-sm sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Herb
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Latin Name
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Action
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Indications
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Energetic Properties
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Safety Precautions
                       </th>
-                      <th className="px-4 py-3 border-b border-slate-800/80 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-4 py-3 border-b border-slate-200 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Therapeutic Dosage (weekly)
                       </th>
-                      {/* Workspace column at far right */}
-                      <th className="px-3 py-3 border-b border-slate-800/80 w-28 text-left text-slate-200 text-[10px] uppercase tracking-[0.16em]">
+                      <th className="px-3 py-3 border-b border-slate-200 w-28 text-left text-slate-700 text-[10px] uppercase tracking-[0.16em]">
                         Workspace
                       </th>
                     </tr>
@@ -917,11 +916,11 @@ export default function HomePage() {
                       return (
                         <tr
                           key={row.id}
-                          className="odd:bg-slate-950/80 even:bg-slate-900/80 hover:bg-slate-800/80 transition-colors"
+                          className="odd:bg-white even:bg-slate-50 hover:bg-slate-100 transition-colors"
                         >
-                          {/* Herb details cells (open drawer on click) */}
+                          {/* Herb cells */}
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 cursor-pointer text-slate-100"
+                            className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-900"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -930,7 +929,7 @@ export default function HomePage() {
                             {row.herbName}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 italic text-slate-300 cursor-pointer"
+                            className="align-top px-4 py-3 border-b border-slate-200 italic text-slate-700 cursor-pointer"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -939,7 +938,7 @@ export default function HomePage() {
                             {row.latinName}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 cursor-pointer text-slate-200"
+                            className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -948,7 +947,7 @@ export default function HomePage() {
                             {row.actions}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 cursor-pointer text-slate-200"
+                            className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -957,7 +956,7 @@ export default function HomePage() {
                             {row.indications}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 cursor-pointer text-slate-200"
+                            className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -966,7 +965,7 @@ export default function HomePage() {
                             {row.energeticProperties}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 cursor-pointer text-slate-200"
+                            className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -975,7 +974,7 @@ export default function HomePage() {
                             {row.safetyPrecautions}
                           </td>
                           <td
-                            className="align-top px-4 py-3 border-b border-slate-800/40 whitespace-nowrap cursor-pointer text-slate-200"
+                            className="align-top px-4 py-3 border-b border-slate-200 whitespace-nowrap cursor-pointer text-slate-800"
                             onClick={() => {
                               setSelectedHerb(row);
                               setIsDrawerOpen(true);
@@ -984,19 +983,19 @@ export default function HomePage() {
                             {formatDose(row)}
                           </td>
 
-                          {/* Workspace button cell at far right */}
-                          <td className="px-3 py-3 border-b border-slate-800/40">
+                          {/* Workspace column */}
+                          <td className="px-3 py-3 border-b border-slate-200">
                             {inWorkspace ? (
                               <button
                                 type="button"
                                 onClick={() =>
                                   handleRemoveHerbFromTable(row.herbId)
                                 }
-                                className="text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-900/70 hover:border-emerald-500/60 inline-flex items-center gap-1 text-slate-100"
+                                className="text-[11px] px-2 py-1 rounded-md border border-slate-300 bg-white hover:border-[#72b01d80] inline-flex items-center gap-1 text-slate-800"
                               >
                                 Remove
                                 <span
-                                  className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-500 text-[10px] text-slate-300"
+                                  className="inline-flex items-center justify-center h-4 w-4 rounded-full border border-slate-400 text-[10px] text-slate-600"
                                   title="Herb already added to tonic"
                                 >
                                   i
@@ -1006,7 +1005,7 @@ export default function HomePage() {
                               <button
                                 type="button"
                                 onClick={() => handleAddHerbToWorkspace(row)}
-                                className="text-[11px] px-3 py-1 rounded-md border border-emerald-500/60 bg-emerald-600/90 hover:bg-emerald-500 text-slate-50 font-semibold"
+                                className="text-[11px] px-3 py-1 rounded-md border border-[#72b01d80] bg-[#72b01d] hover:bg-[#6aa318] text-white font-semibold"
                               >
                                 + Add
                               </button>
@@ -1019,7 +1018,7 @@ export default function HomePage() {
                 </table>
               </div>
             </div>
-            <div className="px-4 py-2 border-t border-slate-800 text-[11px] text-slate-400 bg-slate-950/90">
+            <div className="px-4 py-2 border-t border-slate-200 text-[11px] text-slate-500 bg-slate-50">
               Prototype data only. Always check current references and clinical
               guidelines.
             </div>
@@ -1030,7 +1029,7 @@ export default function HomePage() {
           herbRows.length === 0 &&
           !loading &&
           !error && (
-            <p className="text-sm text-slate-300 mt-4">
+            <p className="text-sm text-slate-600 mt-4">
               No herbs added yet for this concern.
             </p>
           )}
@@ -1043,45 +1042,45 @@ export default function HomePage() {
           <button
             type="button"
             aria-label="Close herb details"
-            className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
-              isDrawerOpen ? 'opacity-100' : 'opacity-0'
+            className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+              isDrawerOpen ? "opacity-100" : "opacity-0"
             }`}
             onClick={closeDrawer}
           />
           {/* Drawer */}
           <div
-            className={`relative z-50 w-full max-w-md bg-slate-950/95 border-l border-slate-800 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
-              isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
+            className={`relative z-50 w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
+              isDrawerOpen ? "translate-x-0" : "translate-x-full"
             }`}
           >
-            <div className="flex items-start justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/95">
+            <div className="flex items-start justify-between px-6 py-4 border-b border-slate-200 bg-white/95">
               <div>
-                <p className="text-[10px] text-emerald-300 tracking-[0.18em] uppercase mb-1">
+                <p className="text-[10px] text-[#72b01d] tracking-[0.18em] uppercase mb-1">
                   Herb
                 </p>
-                <p className="text-lg font-semibold text-slate-50">
+                <p className="text-lg font-semibold text-slate-900">
                   {selectedHerb.herbName}
                 </p>
-                <p className="italic text-slate-300 text-sm">
+                <p className="italic text-slate-600 text-sm">
                   {selectedHerb.latinName}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="ml-4 rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800/80"
+                className="ml-4 rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
               >
                 Close
               </button>
             </div>
 
-            <div className="px-6 py-4 space-y-4 overflow-y-auto text-sm text-slate-200">
+            <div className="px-6 py-4 space-y-4 overflow-y-auto text-sm text-slate-800">
               {selectedHerb.actions && (
                 <div>
-                  <h4 className="text-emerald-300 text-[11px] mb-1 tracking-[0.16em] uppercase">
+                  <h4 className="text-[#72b01d] text-[11px] mb-1 tracking-[0.16em] uppercase">
                     Actions
                   </h4>
-                  <p className="whitespace-pre-wrap text-slate-100/90">
+                  <p className="whitespace-pre-wrap text-slate-900/90">
                     {selectedHerb.actions}
                   </p>
                 </div>
@@ -1089,10 +1088,10 @@ export default function HomePage() {
 
               {selectedHerb.indications && (
                 <div>
-                  <h4 className="text-emerald-300 text-[11px] mb-1 tracking-[0.16em] uppercase">
+                  <h4 className="text-[#72b01d] text-[11px] mb-1 tracking-[0.16em] uppercase">
                     Indications
                   </h4>
-                  <p className="whitespace-pre-wrap text-slate-100/90">
+                  <p className="whitespace-pre-wrap text-slate-900/90">
                     {selectedHerb.indications}
                   </p>
                 </div>
@@ -1100,10 +1099,10 @@ export default function HomePage() {
 
               {selectedHerb.energeticProperties && (
                 <div>
-                  <h4 className="text-emerald-300 text-[11px] mb-1 tracking-[0.16em] uppercase">
+                  <h4 className="text-[#72b01d] text-[11px] mb-1 tracking-[0.16em] uppercase">
                     Energetic Properties
                   </h4>
-                  <p className="whitespace-pre-wrap text-slate-100/90">
+                  <p className="whitespace-pre-wrap text-slate-900/90">
                     {selectedHerb.energeticProperties}
                   </p>
                 </div>
@@ -1111,10 +1110,10 @@ export default function HomePage() {
 
               {selectedHerb.safetyPrecautions && (
                 <div>
-                  <h4 className="text-emerald-300 text-[11px] mb-1 tracking-[0.16em] uppercase">
+                  <h4 className="text-[#72b01d] text-[11px] mb-1 tracking-[0.16em] uppercase">
                     Safety Precautions
                   </h4>
-                  <p className="whitespace-pre-wrap text-slate-100/90">
+                  <p className="whitespace-pre-wrap text-slate-900/90">
                     {selectedHerb.safetyPrecautions}
                   </p>
                 </div>
@@ -1122,10 +1121,10 @@ export default function HomePage() {
 
               {formatDose(selectedHerb) && (
                 <div>
-                  <h4 className="text-emerald-300 text-[11px] mb-1 tracking-[0.16em] uppercase">
+                  <h4 className="text-[#72b01d] text-[11px] mb-1 tracking-[0.16em] uppercase">
                     Therapeutic Dosage
                   </h4>
-                  <p className="whitespace-pre-wrap text-slate-100/90">
+                  <p className="whitespace-pre-wrap text-slate-900/90">
                     {formatDose(selectedHerb)}
                   </p>
                 </div>
@@ -1137,12 +1136,12 @@ export default function HomePage() {
 
       {/* mL ENTRY / EDIT MODAL */}
       {mlModalOpen && mlModalHerb && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div
-            className="w-full max-w-sm bg-slate-900/95 rounded-xl border border-slate-700/80 p-6 shadow-2xl"
+            className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 shadow-2xl"
             tabIndex={-1}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+              if (e.key === "Escape") {
                 e.stopPropagation();
                 handleCloseMlModal();
               }
@@ -1154,22 +1153,22 @@ export default function HomePage() {
                 handleConfirmMlModal();
               }}
             >
-              <h3 className="text-lg font-semibold mb-2 text-slate-50">
-                {mlModalIndex === null ? 'Add Herb to Tonic' : 'Edit Herb Volume'}
+              <h3 className="text-lg font-semibold mb-2 text-slate-900">
+                {mlModalIndex === null ? "Add Herb to Tonic" : "Edit Herb Volume"}
               </h3>
-              <p className="text-sm mb-2 text-slate-300">
-                Enter mL for{' '}
-                <span className="font-semibold text-slate-100">
+              <p className="text-sm mb-2 text-slate-700">
+                Enter mL for{" "}
+                <span className="font-semibold text-slate-900">
                   {mlModalHerb.herbName}
                 </span>
                 :
               </p>
 
-              {/* Therapeutic range info in modal */}
+              {/* Therapeutic range info */}
               {(() => {
                 if (!bottleVolumeMl || !dailyDoseMl) {
                   return (
-                    <p className="text-[12px] mb-3 text-amber-300">
+                    <p className="text-[12px] mb-3 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                       Select bottle size, dose and frequency to calculate the
                       therapeutic range.
                     </p>
@@ -1188,7 +1187,7 @@ export default function HomePage() {
                 const highRounded =
                   range.high != null ? Math.ceil(range.high) : null;
 
-                let rangeText = '';
+                let rangeText = "";
                 if (lowRounded != null && highRounded != null) {
                   rangeText = `${lowRounded}–${highRounded} mL in bottle`;
                 } else if (lowRounded != null && highRounded == null) {
@@ -1200,13 +1199,13 @@ export default function HomePage() {
                 if (!rangeText) return null;
 
                 return (
-                  <p className="text-[12px] mb-3 text-slate-300">
-                    Therapeutic dosage for{' '}
-                    <span className="font-semibold text-slate-100">
+                  <p className="text-[12px] mb-3 text-slate-700">
+                    Therapeutic dosage for{" "}
+                    <span className="font-semibold text-slate-900">
                       {bottleVolumeMl} mL
-                    </span>{' '}
-                    bottle:{' '}
-                    <span className="font-semibold text-slate-100">
+                    </span>{" "}
+                    bottle:{" "}
+                    <span className="font-semibold text-slate-900">
                       {rangeText}
                     </span>
                   </p>
@@ -1215,7 +1214,7 @@ export default function HomePage() {
 
               <input
                 type="number"
-                className="w-full bg-slate-800 border border-slate-600 rounded-md px-3 py-2 mb-4 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-400 appearance-none"
+                className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72b01d66] focus:border-[#72b01d] appearance-none"
                 placeholder="e.g. 5"
                 value={mlModalValue}
                 onChange={(e) => setMlModalValue(e.target.value)}
@@ -1225,13 +1224,13 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={handleCloseMlModal}
-                  className="px-4 py-2 text-sm bg-slate-800 hover:bg-slate-700 rounded-md border border-slate-600 text-slate-100"
+                  className="px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-500 rounded-md font-semibold text-slate-50 border border-emerald-500/70"
+                  className="px-4 py-2 text-sm bg-[#72b01d] hover:bg-[#6aa318] rounded-md font-semibold text-white border border-[#72b01d]"
                 >
                   Confirm
                 </button>
@@ -1247,29 +1246,29 @@ export default function HomePage() {
 
       {/* BOTTLE CONFIG ERROR MODAL */}
       {bottleConfigErrorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm">
           <div
-            className="w-full max-w-sm bg-slate-900/95 rounded-xl border border-red-600/80 p-6 shadow-2xl"
+            className="w-full max-w-sm bg-white rounded-xl border border-red-200 p-6 shadow-2xl"
             tabIndex={-1}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') {
+              if (e.key === "Escape") {
                 e.stopPropagation();
                 setBottleConfigErrorOpen(false);
               }
             }}
           >
-            <h3 className="text-lg font-semibold mb-2 text-red-300">
+            <h3 className="text-lg font-semibold mb-2 text-red-700">
               Set bottle &amp; dose first
             </h3>
-            <p className="text-sm mb-4 text-slate-200">
+            <p className="text-sm mb-4 text-slate-800">
               To add herbs to this tonic, please make sure you have:
             </p>
-            <ul className="list-disc list-inside text-[13px] text-slate-200 mb-4 space-y-1">
+            <ul className="list-disc list-inside text-[13px] text-slate-800 mb-4 space-y-1">
               <li>A bottle size selected</li>
               <li>Dose in mL per serve entered</li>
               <li>Frequency per day set</li>
             </ul>
-            <p className="text-[12px] text-slate-400 mb-4">
+            <p className="text-[12px] text-slate-600 mb-4">
               Once these are set, the therapeutic dosage for each herb will be
               calculated correctly for this bottle.
             </p>
@@ -1277,7 +1276,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setBottleConfigErrorOpen(false)}
-                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-md font-semibold text-slate-50 border border-red-500/80"
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-md font-semibold text-white border border-red-500/80"
               >
                 Got it
               </button>
