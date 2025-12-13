@@ -237,6 +237,13 @@ export default function HomePage() {
   };
 
   const selectedCondition = conditions.find((c) => c.id === selectedConditionId);
+  const isLockedSelection = !!(
+  selectedConditionId &&
+  plan === "free" &&
+  selectedCondition &&
+  !selectedCondition.is_free
+);
+
 
   // Bottle / volume calculations
   const bottleVolumeMl = bottleSize ? Number(bottleSize) : 0;
@@ -413,39 +420,38 @@ export default function HomePage() {
   };
 
   // ✅ handle condition change with lock interception (stores pending lock)
-  const handleConditionChange = (nextId: string) => {
-    if (!nextId) {
-      setSelectedConditionId("");
-      return;
-    }
+const handleConditionChange = (nextId: string) => {
+  if (!nextId) {
+    setSelectedConditionId("");
+    setHerbRows([]);
+    setError(null);
+    return;
+  }
 
-    const chosen = conditions.find((c) => c.id === nextId);
-    if (!chosen) {
-      setSelectedConditionId(nextId);
-      return;
-    }
+  const chosen = conditions.find((c) => c.id === nextId);
 
-    const locked = plan === "free" && !chosen.is_free;
-
-    if (locked) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          PENDING_LOCKED_CONDITION_KEY,
-          JSON.stringify({
-            id: chosen.id,
-            name: chosen.name,
-            returnTo: "/",
-          } satisfies PendingLockedCondition)
-        );
-      }
-
-      setLockedChoice(chosen);
-      setUpgradeModalOpen(true);
-      return; // IMPORTANT: do not setSelectedConditionId
-    }
-
+  // If we can't find it, still set it (safe fallback)
+  if (!chosen) {
     setSelectedConditionId(nextId);
-  };
+    return;
+  }
+
+  const locked = plan === "free" && !chosen.is_free;
+
+  if (locked) {
+    // ✅ Don’t let the locked condition become the selectedConditionId.
+    // This prevents the “No herbs added” confusion from RLS empty results.
+    setLockedChoice(chosen);
+    setUpgradeModalOpen(true);
+
+    // Keep UI clean (no stale “empty table” messaging)
+    setHerbRows([]);
+    setError(null);
+    return;
+  }
+
+  setSelectedConditionId(nextId);
+};
 
   // Load saved tonic from localStorage on mount
   useEffect(() => {
@@ -548,7 +554,12 @@ export default function HomePage() {
       setHerbRows([]);
       return;
     }
-
+if (isLockedSelection) {
+  setHerbRows([]);
+  setLoading(false);
+  setError(null);
+  return;
+}
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -1656,13 +1667,14 @@ export default function HomePage() {
                       </option>
 
                       {conditions.map((c) => {
-                        const locked = plan === "free" && !c.is_free;
+                      const locked = plan === "free" && !c.is_free;
                         return (
-                          <option key={c.id} value={c.id}>
+                            <option key={c.id} value={c.id}>
                             {locked ? `🔒 ${c.name}` : c.name}
-                          </option>
-                        );
-                      })}
+                            </option>
+                         );
+                        })}
+
                     </select>
 
                     {plan === "free" && (
@@ -1675,39 +1687,46 @@ export default function HomePage() {
               </div>
 
               <div className="flex-1 overflow-auto">
-                <div className="min-w-[1200px] px-6 py-4">
-                  {error && (
-                    <p className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-                      {error}
-                    </p>
-                  )}
+  <div className="min-w-[1200px] px-6 py-4">
+    {error && (
+      <p className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+        {error}
+      </p>
+    )}
 
-                  {loading && (
-                    <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
-                  )}
+    {loading && (
+      <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
+    )}
 
-                  {selectedConditionId && herbRows.length > 0 && !loading && !error && (
-                    <>
-                      {renderHerbTable()}
-                      <div className="mt-2 px-1 py-2 text-[11px] text-slate-500 border-t border-slate-100">
-                        Prototype data only. Always check current references and clinical guidelines.
-                      </div>
-                    </>
-                  )}
+    {!selectedConditionId && (
+      <p className="text-sm text-slate-600 mt-2">
+        Select a body system and health concern to view herbal data.
+      </p>
+    )}
 
-                  {selectedConditionId && herbRows.length === 0 && !loading && !error && (
-                    <p className="text-sm text-slate-600 mt-2">
-                      No herbs added yet for this concern.
-                    </p>
-                  )}
+    {selectedConditionId && !loading && !error && isLockedSelection && (
+  <p className="text-sm text-slate-700 mt-2">
+    This health concern is <b>locked</b> on Free. Click Upgrade to access it.
+  </p>
+)}
 
-                  {!selectedConditionId && (
-                    <p className="text-sm text-slate-600 mt-2">
-                      Select a body system and health concern to view herbal data.
-                    </p>
-                  )}
-                </div>
-              </div>
+{selectedConditionId && !loading && !error && !isLockedSelection && herbRows.length === 0 && (
+  <p className="text-sm text-slate-600 mt-2">
+    No herbs added yet for this concern.
+  </p>
+)}
+
+{selectedConditionId && !loading && !error && !isLockedSelection && herbRows.length > 0 && (
+  renderHerbTable()
+)}
+
+
+    {selectedConditionId && !loading && !error && herbRows.length > 0 && (
+      renderHerbTable()
+    )}
+  </div>
+</div>
+
             </div>
           </div>
         )}
@@ -2126,7 +2145,37 @@ export default function HomePage() {
                   Enter mL for{" "}
                   <span className="font-semibold text-slate-900">{mlModalHerb.herbName}</span>:
                 </p>
+{/* Therapeutic dosage helper */}
+{(() => {
+  if (!bottleVolumeMl) {
+    return (
+      <p className="text-[12px] mb-3 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+        Select bottle size to calculate the therapeutic range.
+      </p>
+    );
+  }
 
+  const range = computeTherapeuticBottleRange(mlModalHerb, bottleVolumeMl, dailyDoseMl);
+  if (range.low == null && range.high == null) return null;
+
+  const lowRounded = range.low != null ? Math.ceil(range.low) : null;
+  const highRounded = range.high != null ? Math.ceil(range.high) : null;
+
+  let rangeText = "";
+  if (lowRounded != null && highRounded != null) rangeText = `${lowRounded}–${highRounded} mL in bottle`;
+  else if (lowRounded != null && highRounded == null) rangeText = `≥ ${lowRounded} mL in bottle`;
+  else if (lowRounded == null && highRounded != null) rangeText = `≤ ${highRounded} mL in bottle`;
+
+  if (!rangeText) return null;
+
+  return (
+    <p className="text-[12px] mb-2 text-slate-700">
+      Therapeutic dosage for{" "}
+      <span className="font-semibold text-slate-900">{bottleVolumeMl} mL</span>{" "}
+      bottle: <span className="font-semibold text-slate-900">{rangeText}</span>
+    </p>
+  );
+})()}
                 <input
                   type="number"
                   className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] appearance-none text-[13px]"
@@ -2136,21 +2185,54 @@ export default function HomePage() {
                   autoFocus
                 />
 
-                <div className="flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={handleCloseMlModal}
-                    className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D]"
-                  >
-                    Confirm
-                  </button>
-                </div>
+                {/* Buttons row WITH Quick Fill on the left */}
+<div className="flex items-center justify-between gap-3">
+  {/* LEFT SIDE — Quick Fill */}
+  {(() => {
+    if (!bottleVolumeMl) return null;
+
+    // if editing an existing herb, subtract its current ml first
+    const currentMl =
+      mlModalIndex !== null &&
+      mlModalIndex >= 0 &&
+      workspaceHerbs[mlModalIndex]
+        ? workspaceHerbs[mlModalIndex].ml
+        : 0;
+
+    const otherTotal = totalWorkspaceMl - currentMl;
+    const quickFillTargetMl = Math.max(bottleVolumeMl - otherTotal, 0);
+
+    return quickFillTargetMl > 0 ? (
+      <button
+        type="button"
+        onClick={() => setMlModalValue(String(Math.round(quickFillTargetMl)))}
+        className="px-3 py-2 text-[12px] rounded-md border border-[#72B01D33] bg-[#F0F7E8] hover:bg-[#E3F0D7] text-slate-800"
+      >
+        Fill bottle ({Math.round(quickFillTargetMl)} mL)
+      </button>
+    ) : (
+      <span />
+    );
+  })()}
+
+  {/* RIGHT SIDE — Cancel + Confirm */}
+  <div className="flex items-center gap-3">
+    <button
+      type="button"
+      onClick={handleCloseMlModal}
+      className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
+    >
+      Cancel
+    </button>
+    <button
+      type="submit"
+      className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D]"
+    >
+      Confirm
+    </button>
+  </div>
+</div>
+
               </form>
             </div>
           </div>
