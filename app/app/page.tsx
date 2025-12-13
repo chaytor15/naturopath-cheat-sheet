@@ -271,44 +271,28 @@ export default function HomePage() {
     }
   };
 
-  // ✅ Load user plan (localStorage first + email override + profiles fallback)
-  useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  const localPlan = localStorage.getItem(PLAN_KEY);
-  if (localPlan === "paid" || localPlan === "free") {
-    setPlan(localPlan);
-  }
-}, []);
-
-  useEffect(() => {
+// IMPORTANT:
+// profiles.plan is the single source of truth.
+// localStorage is only a cache, never authoritative.
+useEffect(() => {
   const loadPlan = async () => {
-    // ✅ 1) DEV / local override first
-    if (typeof window !== "undefined") {
-      const localPlan = localStorage.getItem(PLAN_KEY);
-      if (localPlan === "paid" || localPlan === "free") {
-        setPlan(localPlan);
-        if (localPlan === "paid") return; // if paid locally, stop here
-      }
-    }
-
-    // ✅ 2) Normal auth + email override
-    const { data: userRes, error: userErr } = await supabase.auth.getUser();
-    if (userErr) return;
-
-    const user = userRes.user;
-    if (!user) return;
-
-    const email = (user.email ?? "").toLowerCase();
-
-    if (email === PAID_EMAIL_OVERRIDE.toLowerCase()) {
-      setPlan("paid");
-      if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, "paid");
-      return;
-    }
-
-    // ✅ 3) Server profile plan (if you have it)
     try {
+      const { data: userRes, error: userErr } = await supabase.auth.getUser();
+      if (userErr) return;
+
+      const user = userRes.user;
+      if (!user) return;
+
+      const email = (user.email ?? "").toLowerCase();
+
+      // ✅ optional hard override for your email
+      if (email === PAID_EMAIL_OVERRIDE.toLowerCase()) {
+        setPlan("paid");
+        if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, "paid");
+        return;
+      }
+
+      // ✅ Source of truth: profiles.plan
       const { data, error } = await supabase
         .from("profiles")
         .select("plan")
@@ -317,8 +301,15 @@ export default function HomePage() {
 
       if (!error && (data?.plan === "paid" || data?.plan === "free")) {
         setPlan(data.plan);
+
+        // keep localStorage aligned (prevents stale "paid" UI for free users)
         if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, data.plan);
+        return;
       }
+
+      // fallback (shouldn’t happen often)
+      setPlan("free");
+      if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, "free");
     } catch {
       // ignore
     }
@@ -326,6 +317,7 @@ export default function HomePage() {
 
   loadPlan();
 }, []);
+
 
 
   // ✅ Resume after upgrade (reads pending locked condition + opens overlay + selects it)
@@ -424,13 +416,10 @@ const handleConditionChange = (nextId: string) => {
   if (!nextId) {
     setSelectedConditionId("");
     setHerbRows([]);
-    setError(null);
     return;
   }
 
   const chosen = conditions.find((c) => c.id === nextId);
-
-  // If we can't find it, still set it (safe fallback)
   if (!chosen) {
     setSelectedConditionId(nextId);
     return;
@@ -438,20 +427,18 @@ const handleConditionChange = (nextId: string) => {
 
   const locked = plan === "free" && !chosen.is_free;
 
+  // ✅ If locked, open CTA, clear selection + rows so we NEVER show the RLS "empty" state
   if (locked) {
-    // ✅ Don’t let the locked condition become the selectedConditionId.
-    // This prevents the “No herbs added” confusion from RLS empty results.
     setLockedChoice(chosen);
     setUpgradeModalOpen(true);
-
-    // Keep UI clean (no stale “empty table” messaging)
-    setHerbRows([]);
-    setError(null);
+    setSelectedConditionId(""); // 👈 important
+    setHerbRows([]);            // 👈 important
     return;
   }
 
   setSelectedConditionId(nextId);
 };
+
 
   // Load saved tonic from localStorage on mount
   useEffect(() => {
@@ -1688,43 +1675,41 @@ if (isLockedSelection) {
 
               <div className="flex-1 overflow-auto">
   <div className="min-w-[1200px] px-6 py-4">
-    {error && (
-      <p className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
-        {error}
-      </p>
-    )}
+  {error && (
+    <p className="text-sm text-amber-800 mb-4 bg-amber-50 border border-amber-300 rounded-md px-3 py-2">
+      {error}
+    </p>
+  )}
 
-    {loading && (
-      <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
-    )}
+  {loading && (
+    <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
+  )}
 
-    {!selectedConditionId && (
-      <p className="text-sm text-slate-600 mt-2">
-        Select a body system and health concern to view herbal data.
-      </p>
-    )}
+  {!loading && !error && selectedConditionId && herbRows.length > 0 && (
+    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+      {renderHerbTable()}
+    </div>
+  )}
 
-    {selectedConditionId && !loading && !error && isLockedSelection && (
-  <p className="text-sm text-slate-700 mt-2">
-    This health concern is <b>locked</b> on Free. Click Upgrade to access it.
-  </p>
-)}
+  {!loading && !error && !selectedConditionId && (
+    <p className="text-sm text-slate-600 mt-2">
+      Select a body system and health concern to view herbal data.
+    </p>
+  )}
 
-{selectedConditionId && !loading && !error && !isLockedSelection && herbRows.length === 0 && (
-  <p className="text-sm text-slate-600 mt-2">
-    No herbs added yet for this concern.
-  </p>
-)}
+  {!loading && !error && selectedConditionId && herbRows.length === 0 && (
+    <p className="text-sm text-slate-600 mt-2">
+      No herbs added yet for this concern.
+    </p>
+  )}
 
-{selectedConditionId && !loading && !error && !isLockedSelection && herbRows.length > 0 && (
-  renderHerbTable()
-)}
+  {!loading && !error && plan === "free" && upgradeModalOpen && lockedChoice && (
+    <p className="text-sm text-slate-700 mt-2">
+      <b>{lockedChoice.name}</b> is locked on the Free plan. Upgrade to access it.
+    </p>
+  )}
+</div>
 
-
-    {selectedConditionId && !loading && !error && herbRows.length > 0 && (
-      renderHerbTable()
-    )}
-  </div>
 </div>
 
             </div>
