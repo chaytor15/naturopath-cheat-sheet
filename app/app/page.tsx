@@ -4,8 +4,8 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import jsPDF from "jspdf"; // npm install jspdf
 import AuthButton from "@/components/AuthButton";
-import { useRouter } from "next/navigation";
-
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 
 type BodySystemOption = {
@@ -16,7 +16,10 @@ type BodySystemOption = {
 type Condition = {
   id: string;
   name: string;
+  is_free: boolean;
 };
+
+type Plan = "free" | "paid";
 
 type HerbRow = {
   id: string; // condition_herbs row id
@@ -56,7 +59,22 @@ type SavedTonic = {
   patientInstructions: string;
 };
 
+type PendingLockedCondition = {
+  id: string;
+  name?: string;
+  returnTo?: string;
+};
+
 const TONIC_STORAGE_KEY = "tonic_current";
+const RESUME_TO_HERBAL_TABLE_KEY = "tonic_resume_to_herbal_table";
+
+
+// ✅ local plan + pending lock keys
+const PLAN_KEY = "tonic_plan"; // "free" | "paid"
+const PENDING_LOCKED_CONDITION_KEY = "tonic_pending_locked_condition";
+
+// ✅ your “make me paid” email override (Google OAuth)
+const PAID_EMAIL_OVERRIDE = "nzraphiphop@gmail.com";
 
 function formatDose(row: HerbRow): string {
   const unit = row.doseUnit ?? "mL";
@@ -146,15 +164,16 @@ function isDoseWithinBottleRange(
 
   return null;
 }
-
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-useEffect(() => {
-  supabase.auth.getSession().then(({ data }) => {
-    if (!data.session) router.replace("/login");
-  });
-}, [router]);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace("/login");
+    });
+  }, [router]);
+
   const [bodySystems, setBodySystems] = useState<BodySystemOption[]>([]);
   const [selectedBodySystem, setSelectedBodySystem] = useState<string>("");
   const [conditions, setConditions] = useState<Condition[]>([]);
@@ -185,6 +204,16 @@ useEffect(() => {
     "idle"
   );
 
+  // ✅ Plan state (defaults free)
+  const [plan, setPlan] = useState<Plan>("free");
+
+  // ✅ CTA modal state (locked condition)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [lockedChoice, setLockedChoice] = useState<Condition | null>(null);
+
+  // ✅ IMPORTANT: syncingPlan state (fixes your runtime error)
+  const [syncingPlan, setSyncingPlan] = useState(false);
+
   // helper: mark form as having unsaved changes
   const markUnsaved = () => {
     setSaveStatus("idle");
@@ -207,21 +236,15 @@ useEffect(() => {
     setTimeout(() => setSelectedHerb(null), 200);
   };
 
-  const selectedCondition = conditions.find(
-    (c) => c.id === selectedConditionId
-  );
+  const selectedCondition = conditions.find((c) => c.id === selectedConditionId);
 
   // Bottle / volume calculations
   const bottleVolumeMl = bottleSize ? Number(bottleSize) : 0;
   const numericDose = doseMl ? Math.round(Number(doseMl)) : 0;
-  const numericFrequency = frequencyPerDay
-    ? Math.round(Number(frequencyPerDay))
-    : 0;
+  const numericFrequency = frequencyPerDay ? Math.round(Number(frequencyPerDay)) : 0;
 
   const dailyDoseMl =
-    numericDose > 0 && numericFrequency > 0
-      ? numericDose * numericFrequency
-      : 0;
+    numericDose > 0 && numericFrequency > 0 ? numericDose * numericFrequency : 0;
 
   const totalWorkspaceMl = workspaceHerbs.reduce((s, i) => s + i.ml, 0);
   const bottleFillPercentRaw =
@@ -234,6 +257,195 @@ useEffect(() => {
 
   const isHerbInWorkspace = (herbId: string) =>
     workspaceHerbs.some((item) => item.herb.herbId === herbId);
+
+  const ensureTonicId = () => {
+    if (!currentTonicId) {
+      setCurrentTonicId(crypto.randomUUID());
+    }
+  };
+
+  // ✅ Load user plan (localStorage first + email override + profiles fallback)
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const localPlan = localStorage.getItem(PLAN_KEY);
+  if (localPlan === "paid" || localPlan === "free") {
+    setPlan(localPlan);
+  }
+}, []);
+
+  useEffect(() => {
+  const loadPlan = async () => {
+    // ✅ 1) DEV / local override first
+    if (typeof window !== "undefined") {
+      const localPlan = localStorage.getItem(PLAN_KEY);
+      if (localPlan === "paid" || localPlan === "free") {
+        setPlan(localPlan);
+        if (localPlan === "paid") return; // if paid locally, stop here
+      }
+    }
+
+    // ✅ 2) Normal auth + email override
+    const { data: userRes, error: userErr } = await supabase.auth.getUser();
+    if (userErr) return;
+
+    const user = userRes.user;
+    if (!user) return;
+
+    const email = (user.email ?? "").toLowerCase();
+
+    if (email === PAID_EMAIL_OVERRIDE.toLowerCase()) {
+      setPlan("paid");
+      if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, "paid");
+      return;
+    }
+
+    // ✅ 3) Server profile plan (if you have it)
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && (data?.plan === "paid" || data?.plan === "free")) {
+        setPlan(data.plan);
+        if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, data.plan);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  loadPlan();
+}, []);
+
+
+  // ✅ Resume after upgrade (reads pending locked condition + opens overlay + selects it)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const run = async () => {
+      const localPlan = localStorage.getItem(PLAN_KEY);
+      const effectivePlan: Plan = localPlan === "paid" ? "paid" : plan;
+      if (effectivePlan !== "paid") return;
+
+      const raw = localStorage.getItem(PENDING_LOCKED_CONDITION_KEY);
+      if (!raw) return;
+
+      let pending: PendingLockedCondition | null = null;
+      try {
+        pending = JSON.parse(raw);
+      } catch {
+        pending = null;
+      }
+
+      if (!pending?.id) return;
+
+      // open overlay
+      setIsFullScreenTable(true);
+
+      // set body system first (nice UX)
+      try {
+        const { data, error } = await supabase
+          .from("conditions")
+          .select("body_system")
+          .eq("id", pending.id)
+          .maybeSingle();
+
+        if (!error && data?.body_system) {
+          setSelectedBodySystem(data.body_system);
+        }
+      } catch {
+        // ignore
+      }
+
+      // select condition
+      setSelectedConditionId(pending.id);
+
+      // cleanup
+      localStorage.removeItem(PENDING_LOCKED_CONDITION_KEY);
+      setUpgradeModalOpen(false);
+      setLockedChoice(null);
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ✅ used by CTA modal “Already paid? Sync”
+  const syncPlanFromServer = async (): Promise<Plan> => {
+    if (typeof window !== "undefined") {
+  const localPlan = localStorage.getItem(PLAN_KEY);
+  if (localPlan === "paid") {
+    setPlan("paid");
+    return "paid";
+  }
+}
+    setSyncingPlan(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const user = userRes.user;
+      if (!user) return plan;
+
+      const email = (user.email ?? "").toLowerCase();
+      if (email === PAID_EMAIL_OVERRIDE.toLowerCase()) {
+        setPlan("paid");
+        if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, "paid");
+        return "paid";
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("plan")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!error && data?.plan && (data.plan === "paid" || data.plan === "free")) {
+        setPlan(data.plan);
+        if (typeof window !== "undefined") localStorage.setItem(PLAN_KEY, data.plan);
+        return data.plan;
+      }
+      return plan;
+    } finally {
+      setSyncingPlan(false);
+    }
+  };
+
+  // ✅ handle condition change with lock interception (stores pending lock)
+  const handleConditionChange = (nextId: string) => {
+    if (!nextId) {
+      setSelectedConditionId("");
+      return;
+    }
+
+    const chosen = conditions.find((c) => c.id === nextId);
+    if (!chosen) {
+      setSelectedConditionId(nextId);
+      return;
+    }
+
+    const locked = plan === "free" && !chosen.is_free;
+
+    if (locked) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          PENDING_LOCKED_CONDITION_KEY,
+          JSON.stringify({
+            id: chosen.id,
+            name: chosen.name,
+            returnTo: "/",
+          } satisfies PendingLockedCondition)
+        );
+      }
+
+      setLockedChoice(chosen);
+      setUpgradeModalOpen(true);
+      return; // IMPORTANT: do not setSelectedConditionId
+    }
+
+    setSelectedConditionId(nextId);
+  };
 
   // Load saved tonic from localStorage on mount
   useEffect(() => {
@@ -293,17 +505,14 @@ useEffect(() => {
         return;
       }
 
-      const unique = Array.from(
-        new Set((data ?? []).map((r: any) => r.body_system))
-      ).sort();
-
+      const unique = Array.from(new Set((data ?? []).map((r: any) => r.body_system))).sort();
       setBodySystems(unique.map((v) => ({ value: v, label: v })));
     };
 
     fetchBodySystems();
   }, []);
 
-  // LOAD CONDITIONS
+  // LOAD CONDITIONS (✅ now always loads all, we lock in UI)
   useEffect(() => {
     if (!selectedBodySystem) {
       setConditions([]);
@@ -315,7 +524,7 @@ useEffect(() => {
     const load = async () => {
       const { data, error } = await supabase
         .from("conditions")
-        .select("id, name")
+        .select("id, name, is_free")
         .eq("body_system", selectedBodySystem)
         .order("name");
 
@@ -386,9 +595,7 @@ useEffect(() => {
           energeticProperties: row.herbs.energetic_properties,
           safetyPrecautions: row.herbs.safety_precautions,
           ratio:
-            row.ratio !== null && row.ratio !== undefined
-              ? String(row.ratio)
-              : null,
+            row.ratio !== null && row.ratio !== undefined ? String(row.ratio) : null,
           doseMinMl:
             row.dose_min_ml !== null && row.dose_min_ml !== undefined
               ? Number(row.dose_min_ml)
@@ -409,9 +616,7 @@ useEffect(() => {
 
   // workspace handlers
   const handleAddHerbToWorkspace = (herb: HerbRow) => {
-    // open workspace drawer whenever adding
-    setIsWorkspaceDrawerOpen(true);
-
+    // ✅ Add herb should ONLY open the mL modal (not the workspace drawer)
     if (isHerbInWorkspace(herb.herbId)) return;
 
     if (!bottleVolumeMl || !dailyDoseMl) {
@@ -432,9 +637,7 @@ useEffect(() => {
 
   const handleRemoveHerbFromTable = (herbId: string) => {
     markUnsaved();
-    setWorkspaceHerbs((prev) =>
-      prev.filter((item) => item.herb.herbId !== herbId)
-    );
+    setWorkspaceHerbs((prev) => prev.filter((item) => item.herb.herbId !== herbId));
   };
 
   const handleEditWorkspaceHerbMl = (index: number) => {
@@ -468,15 +671,10 @@ useEffect(() => {
     markUnsaved();
 
     if (mlModalIndex === null) {
-      setWorkspaceHerbs((prev) => [
-        ...prev,
-        { herb: mlModalHerb, ml, withinRange },
-      ]);
+      setWorkspaceHerbs((prev) => [...prev, { herb: mlModalHerb, ml, withinRange }]);
     } else {
       setWorkspaceHerbs((prev) =>
-        prev.map((item, i) =>
-          i === mlModalIndex ? { ...item, ml, withinRange } : item
-        )
+        prev.map((item, i) => (i === mlModalIndex ? { ...item, ml, withinRange } : item))
       );
     }
 
@@ -484,6 +682,9 @@ useEffect(() => {
     setMlModalHerb(null);
     setMlModalIndex(null);
     setMlModalValue("");
+
+    // ✅ make the drawer feel “alive” (works on main + overlay)
+    setIsWorkspaceDrawerOpen(true);
   };
 
   const handleCloseMlModal = () => {
@@ -614,11 +815,7 @@ useEffect(() => {
     // Tonic details
     addSubheading("Tonic details");
     addLine(`Tonic name: ${tonicName || "-"}`);
-    addLine(
-      `Bottle size: ${
-        bottleVolumeMl ? `${bottleVolumeMl} mL` : "Not set"
-      }`
-    );
+    addLine(`Bottle size: ${bottleVolumeMl ? `${bottleVolumeMl} mL` : "Not set"}`);
     addLine(
       `Dose: ${
         dailyDoseMl > 0
@@ -627,30 +824,20 @@ useEffect(() => {
       }`
     );
     addLine(
-      `Notes: ${
-        patientInstructions ? patientInstructions.replace(/\s+/g, " ") : "-"
-      }`
+      `Notes: ${patientInstructions ? patientInstructions.replace(/\s+/g, " ") : "-"}`
     );
     addBlank();
 
     // Workspace bottle overview
     addSubheading("Bottle overview");
     addLine(`Total volume in bottle: ${Math.round(totalWorkspaceMl)} mL`);
+    addLine(`Fill: ${bottleVolumeMl ? `${Math.round(bottleFillPercentRaw)}%` : "—"}`);
     addLine(
-      `Fill: ${
-        bottleVolumeMl ? `${Math.round(bottleFillPercentRaw)}%` : "—"
-      }`
-    );
-    addLine(
-      `Remaining to fill: ${
-        bottleVolumeMl ? `${roundedRemainingMl} mL` : "—"
-      }`
+      `Remaining to fill: ${bottleVolumeMl ? `${roundedRemainingMl} mL` : "—"}`
     );
     addLine(
       `Overfilled: ${
-        isOverfilled && bottleVolumeMl
-          ? `Yes (> ${bottleVolumeMl} mL)`
-          : "No"
+        isOverfilled && bottleVolumeMl ? `Yes (> ${bottleVolumeMl} mL)` : "No"
       }`
     );
     addBlank();
@@ -664,22 +851,14 @@ useEffect(() => {
         doc.addPage();
         cursorY = 16;
       }
-      addLine(
-        `#${idx + 1} – ${h.herbName} (${h.latinName || "no latin name"})`
-      );
+      addLine(`#${idx + 1} – ${h.herbName} (${h.latinName || "no latin name"})`);
       addLine(`Amount in bottle: ${Math.round(item.ml)} mL`);
 
-      const range = computeTherapeuticBottleRange(
-        h,
-        bottleVolumeMl,
-        dailyDoseMl
-      );
+      const range = computeTherapeuticBottleRange(h, bottleVolumeMl, dailyDoseMl);
       let rangeString = "No range";
       if (range.low != null || range.high != null) {
-        const lowRounded =
-          range.low != null ? Math.ceil(range.low) : null;
-        const highRounded =
-          range.high != null ? Math.ceil(range.high) : null;
+        const lowRounded = range.low != null ? Math.ceil(range.low) : null;
+        const highRounded = range.high != null ? Math.ceil(range.high) : null;
 
         if (lowRounded != null && highRounded != null) {
           rangeString = `${lowRounded}–${highRounded} mL in bottle`;
@@ -691,40 +870,26 @@ useEffect(() => {
       }
       addLine(`Therapeutic range (this bottle): ${rangeString}`);
       addLine(`Ratio / weekly dose: ${formatDose(h) || "-"}`);
+      addLine(`Actions: ${h.actions ? h.actions.replace(/\s+/g, " ") : "-"}`);
       addLine(
-        `Actions: ${
-          h.actions ? h.actions.replace(/\s+/g, " ") : "-"
-        }`
-      );
-      addLine(
-        `Indications: ${
-          h.indications ? h.indications.replace(/\s+/g, " ") : "-"
-        }`
+        `Indications: ${h.indications ? h.indications.replace(/\s+/g, " ") : "-"}`
       );
       addLine(
         `Energetics: ${
-          h.energeticProperties
-            ? h.energeticProperties.replace(/\s+/g, " ")
-            : "-"
+          h.energeticProperties ? h.energeticProperties.replace(/\s+/g, " ") : "-"
         }`
       );
       addLine(
-        `Safety: ${
-          h.safetyPrecautions
-            ? h.safetyPrecautions.replace(/\s+/g, " ")
-            : "-"
-        }`
+        `Safety: ${h.safetyPrecautions ? h.safetyPrecautions.replace(/\s+/g, " ") : "-"}`
       );
       addBlank();
     });
 
     const filename =
-      (tonicName || clientName || "tonic").replace(/[^\w\-]+/g, "_") +
-      ".pdf";
+      (tonicName || clientName || "tonic").replace(/[^\w\-]+/g, "_") + ".pdf";
     doc.save(filename);
   };
 
-  const roundedTotalWorkspaceMl = Math.round(totalWorkspaceMl);
   const roundedFillPercent = Math.round(bottleFillPercentRaw);
 
   const truncatedStyle: CSSProperties | undefined = !isExpandedView
@@ -770,7 +935,6 @@ useEffect(() => {
               key={row.id}
               className="odd:bg-white/80 even:bg-[#F7F8F3]/80 hover:bg-[#EDEFE6] transition-colors"
             >
-              {/* Herb name */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-900 text-[11px]"
                 onClick={() => {
@@ -781,7 +945,6 @@ useEffect(() => {
                 {row.herbName}
               </td>
 
-              {/* Latin name */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 italic text-slate-700 cursor-pointer text-[11px]"
                 onClick={() => {
@@ -792,7 +955,6 @@ useEffect(() => {
                 {row.latinName}
               </td>
 
-              {/* Action */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800 text-[11px]"
                 onClick={() => {
@@ -809,7 +971,6 @@ useEffect(() => {
                 </div>
               </td>
 
-              {/* Indications */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800 text-[11px]"
                 onClick={() => {
@@ -826,7 +987,6 @@ useEffect(() => {
                 </div>
               </td>
 
-              {/* Energetics */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800 text-[11px]"
                 onClick={() => {
@@ -843,7 +1003,6 @@ useEffect(() => {
                 </div>
               </td>
 
-              {/* Safety */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800 text-[11px]"
                 onClick={() => {
@@ -860,7 +1019,6 @@ useEffect(() => {
                 </div>
               </td>
 
-              {/* Therapeutic dose */}
               <td
                 className="align-top px-4 py-3 border-b border-slate-200 cursor-pointer text-slate-800 text-[11px]"
                 onClick={() => {
@@ -871,7 +1029,6 @@ useEffect(() => {
                 {formatDose(row)}
               </td>
 
-              {/* Workspace column */}
               <td className="px-3 py-3 border-b border-slate-200 text-[11px]">
                 {inWorkspace ? (
                   <button
@@ -903,7 +1060,6 @@ useEffect(() => {
       </tbody>
     </table>
   );
-
   return (
     <>
       {/* TOP NAV / HEADER */}
@@ -924,50 +1080,55 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Nav */}
           {/* Nav + Auth */}
-<div className="flex items-center gap-3">
-  <nav className="flex items-center gap-4 text-[11px] text-[#4B543B]">
-    <a
-      href="https://tonic.example/home"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-    >
-      <span className="text-xs">🏠</span>
-      <span>Home</span>
-    </a>
-    <a
-      href="https://tonic.example/workspace"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#2E332B] text-white shadow-sm"
-    >
-      <span className="text-xs">🧪</span>
-      <span>Workspace</span>
-    </a>
-    <a
-      href="https://tonic.example/herbs"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-    >
-      <span className="text-xs">🌿</span>
-      <span>Herbs</span>
-    </a>
-    <a
-      href="https://tonic.example/clients"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-    >
-      <span className="text-xs">👥</span>
-      <span>Clients</span>
-    </a>
-    <a
-      href="https://tonic.example/settings"
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-    >
-      <span className="text-xs">⚙️</span>
-      <span>Settings</span>
-    </a>
-  </nav>
+          <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-4 text-[11px] text-[#4B543B]">
+              <a
+                href="https://tonic.example/home"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">🏠</span>
+                <span>Home</span>
+              </a>
+              <a
+                href="https://tonic.example/workspace"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#2E332B] text-white shadow-sm"
+              >
+                <span className="text-xs">🧪</span>
+                <span>Workspace</span>
+              </a>
+              <a
+                href="https://tonic.example/herbs"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">🌿</span>
+                <span>Herbs</span>
+              </a>
+              <a
+                href="https://tonic.example/clients"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">👥</span>
+                <span>Clients</span>
+              </a>
+              <a
+                href="https://tonic.example/settings"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">⚙️</span>
+                <span>Settings</span>
+              </a>
+            </nav>
 
-  <AuthButton />
-</div>
+            <Link
+              href="/profile"
+              className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur hover:bg-white/15"
+            >
+              Profile
+            </Link>
 
+            <AuthButton />
+          </div>
         </div>
       </header>
 
@@ -1079,7 +1240,6 @@ useEffect(() => {
                   />
                 </div>
 
-                {/* Bottle size + dose + frequency */}
                 <div className="grid gap-3 md:grid-cols-3 max-w-full">
                   <div>
                     <label className="block text-[10px] mb-1 text-slate-700 font-medium">
@@ -1087,14 +1247,12 @@ useEffect(() => {
                     </label>
                     <select
                       className={`w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px]
-              focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]
-              ${bottleSize === "" ? "text-slate-400" : "text-slate-900"}`}
+                        focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]
+                        ${bottleSize === "" ? "text-slate-400" : "text-slate-900"}`}
                       value={bottleSize}
                       onChange={(e) => {
                         markUnsaved();
-                        setBottleSize(
-                          e.target.value as "100" | "200" | "500" | ""
-                        );
+                        setBottleSize(e.target.value as "100" | "200" | "500" | "");
                       }}
                     >
                       <option value="" disabled>
@@ -1157,10 +1315,8 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Create / Save / Reset / Export */}
               <div className="pt-3 flex justify-end">
                 <div className="flex flex-col items-end gap-2">
-                  {/* Primary create/edit button */}
                   <button
                     type="button"
                     onClick={handleCreateOrEditTonic}
@@ -1169,7 +1325,6 @@ useEffect(() => {
                     {currentTonicId ? "Edit bottle" : "Create"}
                   </button>
 
-                  {/* Secondary actions row */}
                   <div className="flex gap-2 flex-wrap justify-end">
                     <button
                       type="button"
@@ -1193,10 +1348,7 @@ useEffect(() => {
                       type="button"
                       onClick={handleResetTonic}
                       disabled={
-                        !currentTonicId &&
-                        workspaceHerbs.length === 0 &&
-                        !clientName &&
-                        !tonicName
+                        !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
                       }
                       className="px-3 py-1 text-[10px] font-semibold rounded-full border border-slate-200 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
                     >
@@ -1204,7 +1356,6 @@ useEffect(() => {
                     </button>
                   </div>
 
-                  {/* Persistent save state badge */}
                   <div className="mt-1 text-[10px]">
                     {saveStatus === "saved" && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#E4F4D9] text-[#355925] border border-[#9ACC77]">
@@ -1243,7 +1394,6 @@ useEffect(() => {
               </div>
 
               <div className="flex items-center gap-4">
-                {/* Bottle graphic */}
                 <div className="flex flex-col items-center">
                   <div className="flex flex-col items-center">
                     <div className="h-4 w-10 bg-[#142200]" />
@@ -1257,9 +1407,7 @@ useEffect(() => {
                       />
                       <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-white/90 border border-slate-300 rounded-md flex items-center justify-center px-1">
                         <span className="text-[9px] text-slate-700 truncate text-center">
-                          {bottleVolumeMl
-                            ? `${bottleVolumeMl} mL`
-                            : "Bottle mL"}
+                          {bottleVolumeMl ? `${bottleVolumeMl} mL` : "Bottle mL"}
                         </span>
                       </div>
                     </div>
@@ -1270,25 +1418,19 @@ useEffect(() => {
                   <p className="text-slate-800">
                     Total volume:{" "}
                     <span className="font-semibold text-[#4B543B]">
-                      {roundedTotalWorkspaceMl} mL
+                      {Math.round(totalWorkspaceMl)} mL
                     </span>
                   </p>
                   <p className="text-slate-800">
                     Fill:{" "}
-                    <span
-                      className={`font-semibold ${
-                        isOverfilled ? "text-red-600" : "text-[#4B543B]"
-                      }`}
-                    >
+                    <span className={`font-semibold ${isOverfilled ? "text-red-600" : "text-[#4B543B]"}`}>
                       {bottleVolumeMl ? `${roundedFillPercent}%` : "—"}
                     </span>
                   </p>
                   <p className="text-slate-800">
                     Dose:{" "}
                     <span className="font-semibold text-slate-900">
-                      {dailyDoseMl > 0
-                        ? `${numericDose} mL × ${numericFrequency} times daily`
-                        : "—"}
+                      {dailyDoseMl > 0 ? `${numericDose} mL × ${numericFrequency} times daily` : "—"}
                     </span>
                   </p>
                   <p className="text-slate-800">
@@ -1305,7 +1447,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Workspace herbs mini-table */}
               <div className="mt-2 border-t border-slate-200/80 pt-3">
                 <h3 className="text-[10px] font-semibold text-slate-800 mb-2 uppercase tracking-[0.16em]">
                   Herbs in tonic
@@ -1313,8 +1454,7 @@ useEffect(() => {
 
                 {workspaceHerbs.length === 0 ? (
                   <p className="text-[11px] text-slate-500">
-                    No herbs yet. Use the herbal data full-screen to{" "}
-                    <b>Create tonic</b> and add herbs.
+                    No herbs yet. Use the herbal data full-screen to <b>Create tonic</b> and add herbs.
                   </p>
                 ) : (
                   <div className="pr-2">
@@ -1343,14 +1483,10 @@ useEffect(() => {
                             dailyDoseMl
                           );
 
-                          let rangeLabel = (
-                            <span className="text-slate-400">No range</span>
-                          );
+                          let rangeLabel = <span className="text-slate-400">No range</span>;
                           if (range.low != null || range.high != null) {
-                            const lowRounded =
-                              range.low != null ? Math.ceil(range.low) : null;
-                            const highRounded =
-                              range.high != null ? Math.ceil(range.high) : null;
+                            const lowRounded = range.low != null ? Math.ceil(range.low) : null;
+                            const highRounded = range.high != null ? Math.ceil(range.high) : null;
 
                             if (lowRounded != null && highRounded != null) {
                               rangeLabel = (
@@ -1358,20 +1494,10 @@ useEffect(() => {
                                   {lowRounded}–{highRounded} mL
                                 </span>
                               );
-                            } else if (
-                              lowRounded != null &&
-                              highRounded == null
-                            ) {
-                              rangeLabel = (
-                                <span>&gt;= {lowRounded} mL</span>
-                              );
-                            } else if (
-                              lowRounded == null &&
-                              highRounded != null
-                            ) {
-                              rangeLabel = (
-                                <span>&lt;= {highRounded} mL</span>
-                              );
+                            } else if (lowRounded != null && highRounded == null) {
+                              rangeLabel = <span>&gt;= {lowRounded} mL</span>;
+                            } else if (lowRounded == null && highRounded != null) {
+                              rangeLabel = <span>&lt;= {highRounded} mL</span>;
                             }
                           }
 
@@ -1399,23 +1525,17 @@ useEffect(() => {
                               <td className="py-1 px-2 align-top text-[11px]">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    handleEditWorkspaceHerbMl(index)
-                                  }
+                                  onClick={() => handleEditWorkspaceHerbMl(index)}
                                   className="underline decoration-dotted underline-offset-2 hover:text-[#4B543B]"
                                 >
                                   {roundedMl} mL
                                 </button>
                               </td>
-                              <td className="py-1 px-2 align-top text-[11px]">
-                                {rangeLabel}
-                              </td>
+                              <td className="py-1 px-2 align-top text-[11px]">{rangeLabel}</td>
                               <td className="py-1 pl-2 align-top text-[11px]">
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    handleRemoveWorkspaceHerb(index)
-                                  }
+                                  onClick={() => handleRemoveWorkspaceHerb(index)}
                                   className="text-[10px] px-2 py-0.5 rounded-full border border-slate-300 hover:bg-slate-100 text-slate-700"
                                 >
                                   Remove
@@ -1430,10 +1550,8 @@ useEffect(() => {
                 )}
 
                 <div className="mt-2 text-[10px] text-slate-500 flex items-center gap-2">
-                  <span className="inline-block h-2 w-2 rounded-full bg-[#8ED081]" />{" "}
-                  in range
-                  <span className="inline-block h-2 w-2 rounded-full bg-red-500" />{" "}
-                  out of range
+                  <span className="inline-block h-2 w-2 rounded-full bg-[#8ED081]" /> in range
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-500" /> out of range
                 </div>
               </div>
             </div>
@@ -1443,9 +1561,7 @@ useEffect(() => {
         {/* FULL SCREEN HERB TABLE OVERLAY */}
         {isFullScreenTable && (
           <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/70 backdrop-blur-sm">
-            {/* Top bar */}
             <div className="flex items-center px-6 py-2 bg-white/95 border-b border-slate-200">
-              {/* Left: heading */}
               <div className="flex flex-col justify-center">
                 <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
                   Herbal data
@@ -1455,19 +1571,19 @@ useEffect(() => {
                 </span>
               </div>
 
-              {/* Center: Edit tonic button */}
               <div className="flex-1 flex justify-center">
                 <button
                   type="button"
-                  onClick={() => setIsWorkspaceDrawerOpen(true)}
-                  disabled={!currentTonicId && workspaceHerbs.length === 0}
+                  onClick={() => {
+                    ensureTonicId();
+                    setIsWorkspaceDrawerOpen(true);
+                  }}
                   className="px-3 py-1 text-[10px] rounded-full border border-[#72b01d80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                 >
                   Edit bottle
                 </button>
               </div>
 
-              {/* Right: view toggles + close */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -1504,9 +1620,7 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Filters + table */}
             <div className="flex-1 bg-[#F7F8F3] flex flex-col overflow-hidden">
-              {/* Body system / condition filters */}
               <div className="px-6 pt-3 pb-2 border-b border-slate-200 bg-white/90 backdrop-blur-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1534,25 +1648,32 @@ useEffect(() => {
                     <select
                       className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[12px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] disabled:opacity-50"
                       value={selectedConditionId}
-                      onChange={(e) => setSelectedConditionId(e.target.value)}
+                      onChange={(e) => handleConditionChange(e.target.value)}
                       disabled={!selectedBodySystem}
                     >
                       <option value="">
-                        {selectedBodySystem
-                          ? "Select..."
-                          : "Select body system first..."}
+                        {selectedBodySystem ? "Select..." : "Select body system first..."}
                       </option>
-                      {conditions.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
+
+                      {conditions.map((c) => {
+                        const locked = plan === "free" && !c.is_free;
+                        return (
+                          <option key={c.id} value={c.id}>
+                            {locked ? `🔒 ${c.name}` : c.name}
+                          </option>
+                        );
+                      })}
                     </select>
+
+                    {plan === "free" && (
+                      <p className="mt-1 text-[10px] text-slate-500">
+                        Locked items require a paid plan.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Table area */}
               <div className="flex-1 overflow-auto">
                 <div className="min-w-[1200px] px-6 py-4">
                   {error && (
@@ -1562,37 +1683,27 @@ useEffect(() => {
                   )}
 
                   {loading && (
-                    <p className="text-sm text-slate-600 mb-4">
-                      Loading herbs...
+                    <p className="text-sm text-slate-600 mb-4">Loading herbs...</p>
+                  )}
+
+                  {selectedConditionId && herbRows.length > 0 && !loading && !error && (
+                    <>
+                      {renderHerbTable()}
+                      <div className="mt-2 px-1 py-2 text-[11px] text-slate-500 border-t border-slate-100">
+                        Prototype data only. Always check current references and clinical guidelines.
+                      </div>
+                    </>
+                  )}
+
+                  {selectedConditionId && herbRows.length === 0 && !loading && !error && (
+                    <p className="text-sm text-slate-600 mt-2">
+                      No herbs added yet for this concern.
                     </p>
                   )}
 
-                  {selectedConditionId &&
-                    herbRows.length > 0 &&
-                    !loading &&
-                    !error && (
-                      <>
-                        {renderHerbTable()}
-                        <div className="mt-2 px-1 py-2 text-[11px] text-slate-500 border-t border-slate-100">
-                          Prototype data only. Always check current
-                          references and clinical guidelines.
-                        </div>
-                      </>
-                    )}
-
-                  {selectedConditionId &&
-                    herbRows.length === 0 &&
-                    !loading &&
-                    !error && (
-                      <p className="text-sm text-slate-600 mt-2">
-                        No herbs added yet for this concern.
-                      </p>
-                    )}
-
                   {!selectedConditionId && (
                     <p className="text-sm text-slate-600 mt-2">
-                      Select a body system and health concern to view herbal
-                      data.
+                      Select a body system and health concern to view herbal data.
                     </p>
                   )}
                 </div>
@@ -1601,26 +1712,115 @@ useEffect(() => {
           </div>
         )}
 
-        {/* WORKSPACE BOTTLE SIDE DRAWER */}
+        {/* ✅ UPGRADE CTA MODAL */}
+        {upgradeModalOpen && plan === "free" && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/45 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.18em] text-[#72B01D]">
+                    Paid feature
+                  </p>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Unlock {lockedChoice?.name ? `"${lockedChoice.name}"` : "this health concern"}
+                  </h3>
+                  <p className="mt-2 text-sm text-slate-700">
+                    Upgrade to access all locked health concerns and build full formulas without limits.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUpgradeModalOpen(false);
+                    setLockedChoice(null);
+                  }}
+                  className="rounded-full border border-slate-300 px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-200 bg-[#F7F8F3] p-4">
+                <ul className="text-[13px] text-slate-800 space-y-2">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5">🔓</span>
+                    <span>Full access to all body systems &amp; health concerns</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5">💾</span>
+                    <span>Save unlimited clients &amp; tonics (coming next)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5">📄</span>
+                    <span>PDF export + faster workflow</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-5 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => router.push("/pricing")}
+                  className="w-full px-4 py-2 text-[12px] rounded-xl bg-[#72B01D] hover:bg-[#6AA318] text-white font-semibold border border-[#72B01D]"
+                >
+                  Upgrade to Pro
+                </button>
+
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUpgradeModalOpen(false);
+                      setLockedChoice(null);
+                    }}
+                    className="px-4 py-2 text-[12px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                  >
+                    Not now
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const newPlan = await syncPlanFromServer();
+                      if (lockedChoice && newPlan === "paid") {
+                        setSelectedConditionId(lockedChoice.id);
+                        setUpgradeModalOpen(false);
+                        setLockedChoice(null);
+                      }
+                    }}
+                    className="px-4 py-2 text-[12px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 disabled:opacity-50"
+                    disabled={syncingPlan}
+                    title="If you’ve just upgraded, click to refresh your plan status"
+                  >
+                    {syncingPlan ? "Syncing..." : "Already paid? Sync"}
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-500">
+                  If you just upgraded, syncing may take a few seconds to reflect.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ WORKSPACE BOTTLE SIDE DRAWER */}
         {isWorkspaceDrawerOpen && (
-          <div className="fixed inset-0 z-[55] flex justify-start">
-            {/* Backdrop */}
+          <div className="fixed inset-0 z-[75] flex justify-start">
             <button
               type="button"
               aria-label="Close workspace overview"
               className="absolute inset-0 bg-black/25 backdrop-blur-[1px]"
               onClick={() => setIsWorkspaceDrawerOpen(false)}
             />
-            {/* Drawer */}
-            <div className="relative z-[56] w-full max-w-md bg-white border-r border-slate-200 shadow-2xl flex flex-col">
+            <div className="relative z-[76] w-full max-w-md bg-white border-r border-slate-200 shadow-2xl flex flex-col">
               <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-white/95">
                 <div>
                   <p className="text-[10px] text-[#72B01D] tracking-[0.18em] uppercase mb-1">
                     Workspace
                   </p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    Bottle overview
-                  </p>
+                  <p className="text-sm font-semibold text-slate-900">Bottle overview</p>
                 </div>
                 <button
                   type="button"
@@ -1631,199 +1831,194 @@ useEffect(() => {
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-center">
-                      <div className="flex flex-col items-center">
-                        <div className="h-4 w-10 bg-[#3a3335]" />
-                        <div className="h-4 w-8 bg-[#3a3335]" />
-                        <div className="relative h-32 w-16 bg-[#3a3335] rounded-t-xl rounded-b-3xl overflow-hidden">
-                          <div
-                            className={`absolute bottom-0 left-0 right-0 transition-all duration-300 ease-out ${
-                              isOverfilled ? "bg-red-500/80" : "bg-[#72B01D]"
-                            }`}
-                            style={{ height: `${bottleFillPercent}%` }}
-                          />
-                          <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-white/90 border border-slate-300 rounded-md flex items-center justify-center px-1">
-                            <span className="text-[9px] text-slate-700 truncate text-center">
-                              {bottleVolumeMl
-                                ? `${bottleVolumeMl} mL`
-                                : "Bottle size"}
-                            </span>
-                          </div>
-                        </div>
+              <div className="border-slate-200 bg-[#F7F8F3] p-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="h-3 w-9 bg-[#142200]" />
+                    <div className="h-3 w-7 bg-[#142200]" />
+                    <div className="relative h-28 w-14 bg-[#142200] rounded-t-xl rounded-b-3xl overflow-hidden">
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 transition-all duration-300 ease-out ${
+                          isOverfilled ? "bg-red-500/80" : "bg-[#72B01D]"
+                        }`}
+                        style={{ height: `${bottleFillPercent}%` }}
+                      />
+                      <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-6 bg-white/90 border border-slate-300 rounded-md flex items-center justify-center px-1">
+                        <span className="text-[9px] text-slate-700 truncate text-center">
+                          {bottleVolumeMl ? `${bottleVolumeMl} mL` : "Bottle mL"}
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="text-[11px] space-y-1">
-                      <p className="text-slate-800">
-                        Total volume:{" "}
-                        <span className="font-semibold text-[#4B543B]">
-                          {roundedTotalWorkspaceMl} mL
-                        </span>
-                      </p>
-                      <p className="text-slate-800">
-                        Fill:{" "}
-                        <span
-                          className={`font-semibold ${
-                            isOverfilled ? "text-red-600" : "text-[#4B543B]"
-                          }`}
-                        >
-                          {bottleVolumeMl ? `${roundedFillPercent}%` : "—"}
-                        </span>
-                      </p>
-                      <p className="text-slate-800">
-                        Dose:{" "}
-                        <span className="font-semibold text-slate-900">
-                          {dailyDoseMl > 0
-                            ? `${numericDose} mL × ${numericFrequency} times daily`
-                            : "—"}
-                        </span>
-                      </p>
-                      <p className="text-slate-800">
-                        Remaining to fill:{" "}
-                        <span className="font-semibold text-slate-900">
-                          {bottleVolumeMl ? `${roundedRemainingMl} mL` : "—"}
-                        </span>
-                      </p>
-                      {isOverfilled && (
-                        <p className="text-[10px] text-red-600">
-                          Overfilled (&gt;{bottleVolumeMl} mL). Adjust volumes.
-                        </p>
-                      )}
                     </div>
                   </div>
 
-                  <div className="mt-2 border-t border-slate-200 pt-3">
-                    <h3 className="text-[10px] font-semibold text-slate-800 mb-2 uppercase tracking-[0.16em]">
-                      Herbs in tonic
-                    </h3>
+                  <div className="text-[11px] space-y-1 flex-1">
+                    <p className="text-slate-800">
+                      Bottle size:{" "}
+                      <span className="font-semibold text-slate-900">
+                        {bottleVolumeMl ? `${bottleVolumeMl} mL` : "—"}
+                      </span>
+                    </p>
 
-                    {workspaceHerbs.length === 0 ? (
-                      <p className="text-[11px] text-slate-500">
-                        No herbs yet. When you add herbs from the table, they’ll
-                        show here.
+                    <p className="text-slate-800">
+                      Dose:{" "}
+                      <span className="font-semibold text-slate-900">
+                        {dailyDoseMl > 0
+                          ? `${numericDose} mL × ${numericFrequency} times daily`
+                          : "—"}
+                      </span>
+                    </p>
+
+                    <p className="text-slate-800">
+                      Total volume:{" "}
+                      <span className="font-semibold text-slate-900">
+                        {Math.round(totalWorkspaceMl)} mL
+                      </span>
+                    </p>
+
+                    <p className="text-slate-800">
+                      Remaining:{" "}
+                      <span className="font-semibold text-slate-900">
+                        {bottleVolumeMl ? `${roundedRemainingMl} mL` : "—"}
+                      </span>
+                    </p>
+
+                    <p className="text-slate-800">
+                      Fill:{" "}
+                      <span
+                        className={`font-semibold ${
+                          isOverfilled ? "text-red-600" : "text-slate-900"
+                        }`}
+                      >
+                        {bottleVolumeMl ? `${Math.round(bottleFillPercentRaw)}%` : "—"}
+                      </span>
+                    </p>
+
+                    {isOverfilled && bottleVolumeMl > 0 && (
+                      <p className="mt-2 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                        Overfilled (&gt;{bottleVolumeMl} mL). Reduce volumes.
                       </p>
-                    ) : (
-                      <div className="max-h-64 overflow-y-auto pr-2">
-                        <table className="w-full text-[11px] border-collapse table-fixed">
-                          <thead className="sticky top-0 bg-[#F0F3EB]/95 backdrop-blur-sm">
-                            <tr>
-                              <th className="text-left py-1 pr-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] whitespace-normal leading-tight">
-                                Herb
-                              </th>
-                              <th className="text-left py-1 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] whitespace-normal leading-tight">
-                                mL
-                              </th>
-                              <th className="text-left py-1 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] whitespace-normal leading-tight">
-                                Range
-                              </th>
-                              <th className="text-left py-1 pl-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] whitespace-normal leading-tight">
-                                Remove
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {workspaceHerbs.map((item, index) => {
-                              const range = computeTherapeuticBottleRange(
-                                item.herb,
-                                bottleVolumeMl,
-                                dailyDoseMl
-                              );
-
-                              let rangeLabel = (
-                                <span className="text-slate-400">
-                                  No range
-                                </span>
-                              );
-                              if (range.low != null || range.high != null) {
-                                const lowRounded =
-                                  range.low != null
-                                    ? Math.ceil(range.low)
-                                    : null;
-                                const highRounded =
-                                  range.high != null
-                                    ? Math.ceil(range.high)
-                                    : null;
-
-                                if (lowRounded != null && highRounded != null) {
-                                  rangeLabel = (
-                                    <span>
-                                      {lowRounded}–{highRounded} mL
-                                    </span>
-                                  );
-                                } else if (
-                                  lowRounded != null &&
-                                  highRounded == null
-                                ) {
-                                  rangeLabel = (
-                                    <span>&gt;= {lowRounded} mL</span>
-                                  );
-                                } else if (
-                                  lowRounded == null &&
-                                  highRounded != null
-                                ) {
-                                  rangeLabel = (
-                                    <span>&lt;= {highRounded} mL</span>
-                                  );
-                                }
-                              }
-
-                              const roundedMl = Math.round(item.ml);
-
-                              return (
-                                <tr
-                                  key={`${item.herb.id}-${index}`}
-                                  className={
-                                    item.withinRange === null
-                                      ? "bg-slate-50/80"
-                                      : item.withinRange
-                                      ? "bg-[#8ED08133]"
-                                      : "bg-red-50"
-                                  }
-                                >
-                                  <td className="py-1 pr-2 align-top text-[11px]">
-                                    <div className="font-medium text-slate-900">
-                                      {item.herb.herbName}
-                                    </div>
-                                    <div className="italic text-[10px] text-slate-600">
-                                      {item.herb.latinName}
-                                    </div>
-                                  </td>
-                                  <td className="py-1 px-2 align-top text-[11px]">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleEditWorkspaceHerbMl(index)
-                                      }
-                                      className="underline decoration-dotted underline-offset-2 hover:text-[#4B543B]"
-                                    >
-                                      {roundedMl} mL
-                                    </button>
-                                  </td>
-                                  <td className="py-1 px-2 align-top text-[11px]">
-                                    {rangeLabel}
-                                  </td>
-                                  <td className="py-1 pl-2 align-top text-[11px]">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleRemoveWorkspaceHerb(index)
-                                      }
-                                      className="text-[10px] px-2 py-0.5 rounded-full border border-slate-300 hover:bg-slate-100 text-slate-700"
-                                    >
-                                      Remove
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div className="p-4 overflow-y-auto space-y-4">
+                <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 bg-white/95">
+                    <h3 className="text-[10px] font-semibold text-slate-800 uppercase tracking-[0.16em]">
+                      Herbs in tonic
+                    </h3>
+                  </div>
+
+                  {workspaceHerbs.length === 0 ? (
+                    <div className="px-4 py-4 text-[11px] text-slate-500">
+                      No herbs added yet.
+                    </div>
+                  ) : (
+                    <div className="px-4 py-3">
+                      <table className="w-full text-[11px] border-collapse table-fixed">
+                        <thead className="bg-[#F0F3EB]/70">
+                          <tr>
+                            <th className="text-left py-2 pr-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em]">
+                              Herb
+                            </th>
+                            <th className="text-left py-2 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] w-16">
+                              mL
+                            </th>
+                            <th className="text-left py-2 px-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] w-24">
+                              Range
+                            </th>
+                            <th className="text-left py-2 pl-2 border-b border-slate-200 text-slate-600 text-[10px] uppercase tracking-[0.14em] w-20">
+                              Remove
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workspaceHerbs.map((item, index) => {
+                            const range = computeTherapeuticBottleRange(
+                              item.herb,
+                              bottleVolumeMl,
+                              dailyDoseMl
+                            );
+
+                            let rangeLabel = <span className="text-slate-400">—</span>;
+                            if (range.low != null || range.high != null) {
+                              const lowRounded = range.low != null ? Math.ceil(range.low) : null;
+                              const highRounded = range.high != null ? Math.ceil(range.high) : null;
+
+                              if (lowRounded != null && highRounded != null) {
+                                rangeLabel = (
+                                  <span>
+                                    {lowRounded}–{highRounded}
+                                  </span>
+                                );
+                              } else if (lowRounded != null && highRounded == null) {
+                                rangeLabel = <span>&gt;= {lowRounded}</span>;
+                              } else if (lowRounded == null && highRounded != null) {
+                                rangeLabel = <span>&lt;= {highRounded}</span>;
+                              }
+                            }
+
+                            return (
+                              <tr
+                                key={`${item.herb.id}-${index}`}
+                                className={
+                                  item.withinRange === null
+                                    ? "bg-white"
+                                    : item.withinRange
+                                    ? "bg-[#8ED08133]"
+                                    : "bg-red-50"
+                                }
+                              >
+                                <td className="py-2 pr-2 align-top">
+                                  <div className="font-medium text-slate-900">
+                                    {item.herb.herbName}
+                                  </div>
+                                  <div className="italic text-[10px] text-slate-600">
+                                    {item.herb.latinName}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-2 align-top">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditWorkspaceHerbMl(index)}
+                                    className="underline decoration-dotted underline-offset-2 hover:text-[#4B543B]"
+                                  >
+                                    {Math.round(item.ml)}
+                                  </button>
+                                </td>
+                                <td className="py-2 px-2 align-top">{rangeLabel}</td>
+                                <td className="py-2 pl-2 align-top">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveWorkspaceHerb(index)}
+                                    className="text-[10px] px-2 py-0.5 rounded-full border border-slate-300 hover:bg-slate-100 text-slate-700"
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      <div className="mt-3 text-[10px] text-slate-500 flex items-center gap-2">
+                        <span className="inline-block h-2 w-2 rounded-full bg-[#8ED081]" /> in range
+                        <span className="inline-block h-2 w-2 rounded-full bg-red-500" /> out of range
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsWorkspaceDrawerOpen(false)}
+                    className="px-4 py-2 text-[12px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                  >
+                    Done
+                  </button>
                 </div>
               </div>
             </div>
@@ -1833,7 +2028,6 @@ useEffect(() => {
         {/* HERB DETAILS SIDE DRAWER */}
         {selectedHerb && (
           <div className="fixed inset-0 z-[60] flex justify-end">
-            {/* Backdrop */}
             <button
               type="button"
               aria-label="Close herb details"
@@ -1842,7 +2036,6 @@ useEffect(() => {
               }`}
               onClick={closeDrawer}
             />
-            {/* Drawer */}
             <div
               className={`relative z-[61] w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${
                 isDrawerOpen ? "translate-x-0" : "translate-x-full"
@@ -1853,12 +2046,8 @@ useEffect(() => {
                   <p className="text-[10px] text-[#72B01D] tracking-[0.18em] uppercase mb-1">
                     Herb
                   </p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {selectedHerb.herbName}
-                  </p>
-                  <p className="italic text-slate-600 text-sm">
-                    {selectedHerb.latinName}
-                  </p>
+                  <p className="text-lg font-semibold text-slate-900">{selectedHerb.herbName}</p>
+                  <p className="italic text-slate-600 text-sm">{selectedHerb.latinName}</p>
                 </div>
                 <button
                   type="button"
@@ -1875,9 +2064,7 @@ useEffect(() => {
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
                       Actions
                     </h4>
-                    <p className="whitespace-pre-wrap text-slate-900/90">
-                      {selectedHerb.actions}
-                    </p>
+                    <p className="whitespace-pre-wrap text-slate-900/90">{selectedHerb.actions}</p>
                   </div>
                 )}
 
@@ -1886,9 +2073,7 @@ useEffect(() => {
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
                       Indications
                     </h4>
-                    <p className="whitespace-pre-wrap text-slate-900/90">
-                      {selectedHerb.indications}
-                    </p>
+                    <p className="whitespace-pre-wrap text-slate-900/90">{selectedHerb.indications}</p>
                   </div>
                 )}
 
@@ -1897,9 +2082,7 @@ useEffect(() => {
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
                       Energetic properties
                     </h4>
-                    <p className="whitespace-pre-wrap text-slate-900/90">
-                      {selectedHerb.energeticProperties}
-                    </p>
+                    <p className="whitespace-pre-wrap text-slate-900/90">{selectedHerb.energeticProperties}</p>
                   </div>
                 )}
 
@@ -1908,9 +2091,7 @@ useEffect(() => {
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
                       Safety precautions
                     </h4>
-                    <p className="whitespace-pre-wrap text-slate-900/90">
-                      {selectedHerb.safetyPrecautions}
-                    </p>
+                    <p className="whitespace-pre-wrap text-slate-900/90">{selectedHerb.safetyPrecautions}</p>
                   </div>
                 )}
 
@@ -1919,9 +2100,7 @@ useEffect(() => {
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
                       Therapeutic dosage
                     </h4>
-                    <p className="whitespace-pre-wrap text-slate-900/90">
-                      {formatDose(selectedHerb)}
-                    </p>
+                    <p className="whitespace-pre-wrap text-slate-900/90">{formatDose(selectedHerb)}</p>
                   </div>
                 )}
               </div>
@@ -1932,16 +2111,7 @@ useEffect(() => {
         {/* mL ENTRY / EDIT MODAL */}
         {mlModalOpen && mlModalHerb && (
           <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div
-              className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 shadow-2xl"
-              tabIndex={-1}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.stopPropagation();
-                  handleCloseMlModal();
-                }
-              }}
-            >
+            <div className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 shadow-2xl">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -1949,82 +2119,13 @@ useEffect(() => {
                 }}
               >
                 <h3 className="text-lg font-semibold mb-2 text-slate-900">
-                  {mlModalIndex === null
-                    ? "Add herb to tonic"
-                    : "Edit herb volume"}
+                  {mlModalIndex === null ? "Add herb to tonic" : "Edit herb volume"}
                 </h3>
+
                 <p className="text-sm mb-2 text-slate-700">
                   Enter mL for{" "}
-                  <span className="font-semibold text-slate-900">
-                    {mlModalHerb.herbName}
-                  </span>
-                  :
+                  <span className="font-semibold text-slate-900">{mlModalHerb.herbName}</span>:
                 </p>
-
-                {/* Therapeutic dosage helper */}
-                {(() => {
-                  if (!bottleVolumeMl) {
-                    return (
-                      <p className="text-[12px] mb-3 text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        Select bottle size to calculate the therapeutic range.
-                      </p>
-                    );
-                  }
-                  const range = computeTherapeuticBottleRange(
-                    mlModalHerb,
-                    bottleVolumeMl,
-                    dailyDoseMl
-                  );
-                  if (range.low == null && range.high == null) return null;
-
-                  const lowRounded =
-                    range.low != null ? Math.ceil(range.low) : null;
-                  const highRounded =
-                    range.high != null ? Math.ceil(range.high) : null;
-
-                  let rangeText = "";
-                  if (lowRounded != null && highRounded != null) {
-                    rangeText = `${lowRounded}–${highRounded} mL in bottle`;
-                  } else if (lowRounded != null && highRounded == null) {
-                    rangeText = `≥ ${lowRounded} mL in bottle`;
-                  } else if (lowRounded == null && highRounded != null) {
-                    rangeText = `≤ ${highRounded} mL in bottle`;
-                  }
-
-                  if (!rangeText) return null;
-
-                  return (
-                    <p className="text-[12px] mb-2 text-slate-700">
-                      Therapeutic dosage for{" "}
-                      <span className="font-semibold text-slate-900">
-                        {bottleVolumeMl} mL
-                      </span>{" "}
-                      bottle:{" "}
-                      <span className="font-semibold text-slate-900">
-                        {rangeText}
-                      </span>
-                    </p>
-                  );
-                })()}
-
-                {/* Remaining to fill under helper */}
-                {(() => {
-                  if (!bottleVolumeMl) return null;
-
-                  const remainingForBottle = Math.max(
-                    bottleVolumeMl - totalWorkspaceMl,
-                    0
-                  );
-
-                  return (
-                    <p className="text-[12px] mb-3 text-slate-700">
-                      Remaining to fill:{" "}
-                      <span className="font-semibold text-slate-900">
-                        {Math.round(remainingForBottle)} mL
-                      </span>
-                    </p>
-                  );
-                })()}
 
                 <input
                   type="number"
@@ -2035,65 +2136,21 @@ useEffect(() => {
                   autoFocus
                 />
 
-                {/* Buttons row WITH Quick Fill on the left */}
-                <div className="flex items-center justify-between gap-3">
-                  {/* LEFT SIDE — Quick Fill */}
-                  {(() => {
-                    if (!bottleVolumeMl) return null;
-
-                    const currentMl =
-                      mlModalIndex !== null &&
-                      mlModalIndex >= 0 &&
-                      workspaceHerbs[mlModalIndex]
-                        ? workspaceHerbs[mlModalIndex].ml
-                        : 0;
-
-                    const otherTotal = totalWorkspaceMl - currentMl;
-                    const quickFillTargetMl = Math.max(
-                      bottleVolumeMl - otherTotal,
-                      0
-                    );
-
-                    return quickFillTargetMl > 0 ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setMlModalValue(
-                            String(Math.round(quickFillTargetMl))
-                          )
-                        }
-                        className="px-3 py-2 text-[12px] rounded-md border border-[#72B01D33] bg-[#F0F7E8] hover:bg-[#E3F0D7] text-slate-800"
-                      >
-                        Fill bottle ({Math.round(quickFillTargetMl)} mL)
-                      </button>
-                    ) : (
-                      <span />
-                    );
-                  })()}
-
-                  {/* RIGHT SIDE — Cancel + Confirm */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCloseMlModal}
-                      className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D]"
-                    >
-                      Confirm
-                    </button>
-                  </div>
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseMlModal}
+                    className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D]"
+                  >
+                    Confirm
+                  </button>
                 </div>
-
-                <p className="mt-2 text-[11px] text-slate-500">
-                  Tip: Press <span className="font-semibold">Enter</span> to
-                  confirm, or <span className="font-semibold">Esc</span> to
-                  close.
-                </p>
               </form>
             </div>
           </div>
@@ -2102,19 +2159,8 @@ useEffect(() => {
         {/* BOTTLE CONFIG ERROR MODAL */}
         {bottleConfigErrorOpen && (
           <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/45 backdrop-blur-sm">
-            <div
-              className="w-full max-w-sm bg-white rounded-xl border border-red-200 p-6 shadow-2xl"
-              tabIndex={-1}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  e.stopPropagation();
-                  setBottleConfigErrorOpen(false);
-                }
-              }}
-            >
-              <h3 className="text-lg font-semibold mb-2 text-red-700">
-                Set bottle &amp; dose first
-              </h3>
+            <div className="w-full max-w-sm bg-white rounded-xl border border-red-200 p-6 shadow-2xl">
+              <h3 className="text-lg font-semibold mb-2 text-red-700">Set bottle &amp; dose first</h3>
               <p className="text-sm mb-4 text-slate-800">
                 To add herbs to this tonic, please make sure you have:
               </p>
@@ -2123,10 +2169,6 @@ useEffect(() => {
                 <li>Dose in mL per serve entered</li>
                 <li>Frequency per day set</li>
               </ul>
-              <p className="text-[12px] text-slate-600 mb-4">
-                Once these are set, the therapeutic dosage for each herb will be
-                calculated correctly for this bottle.
-              </p>
               <div className="flex justify-end">
                 <button
                   type="button"
