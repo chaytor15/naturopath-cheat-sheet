@@ -2131,7 +2131,7 @@ if (isLockedSelection) {
                     disabled={
                       !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
                     }
-                    className="px-3 py-1 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-600 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
+                    className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
                   >
                     Reset form
                   </button>
@@ -2141,7 +2141,7 @@ if (isLockedSelection) {
                       type="button"
                       onClick={handleSaveTonic}
                       disabled={workspaceHerbs.length === 0}
-                    className="px-3 py-1 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
+                    className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40 hover:bg-slate-50"
                     >
                       Save
                     </button>
@@ -2150,7 +2150,7 @@ if (isLockedSelection) {
                     <button
                       type="button"
                     onClick={handleCreateOrEditTonic}
-                    className="px-3 py-1 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                    className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                   >
                     {currentTonicId ? "Edit bottle" : "Create tonic"}
                     </button>
