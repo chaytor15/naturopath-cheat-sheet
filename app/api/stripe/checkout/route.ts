@@ -1,62 +1,81 @@
-import Stripe from "stripe";
+// app/api/stripe/checkout/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { stripe } from "@/lib/stripe";
+import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10" as any,
-});
-
-
-export async function POST(req: Request) {
+export async function POST() {
   try {
-    const { priceId } = (await req.json()) as { priceId?: string };
+    const supabase = await createSupabaseServerClient();
 
-    if (!priceId) {
-      return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
+
+    if (userErr || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("id, email, stripe_customer_id, plan")
+      .eq("id", user.id)
+      .single();
 
-    // We expect the client to send the Supabase access token
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (profileErr || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnon);
-    const { data: userRes, error: userErr } = await supabase.auth.getUser(token);
-
-    if (userErr || !userRes?.user) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    if (profile.plan === "paid") {
+      return NextResponse.json({ error: "Already paid" }, { status: 400 });
     }
 
-    const user = userRes.user;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const priceId = process.env.STRIPE_PRICE_ID;
+
+    if (!appUrl) throw new Error("Missing NEXT_PUBLIC_APP_URL");
+    if (!priceId) throw new Error("Missing STRIPE_PRICE_ID");
+
+    let customerId = profile.stripe_customer_id ?? null;
+
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: profile.email ?? user.email ?? undefined,
+        metadata: { supabase_user_id: user.id },
+      });
+
+      customerId = customer.id;
+
+      const { error: updateErr } = await supabase
+        .from("profiles")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", user.id);
+
+      if (updateErr) {
+        return NextResponse.json(
+          { error: "Failed to store stripe_customer_id" },
+          { status: 500 }
+        );
+      }
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+      customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${appUrl}/upgrade/success`,
-      cancel_url: `${appUrl}/pricing?canceled=1`,
-
-      // The key thing: link Stripe event → Supabase user
-      client_reference_id: user.id,
-      customer_email: user.email ?? undefined,
-
-      // optional: also include metadata (handy for debugging)
-      metadata: {
-        supabase_user_id: user.id,
-      },
+      success_url: `${appUrl}/app?stripe=success`,
+      cancel_url: `${appUrl}/app?stripe=cancel`,
+      metadata: { supabase_user_id: user.id },
     });
 
-    return NextResponse.json({ url: session.url });
-  } catch (e: any) {
-    console.error("checkout error", e);
-    return NextResponse.json({ error: e?.message ?? "Server error" }, { status: 500 });
+    return NextResponse.json({ url: session.url }, { status: 200 });
+  } catch (err: any) {
+    console.error("Checkout error:", err);
+    return NextResponse.json(
+      { error: err?.message ?? "Checkout failed" },
+      { status: 500 }
+    );
   }
 }

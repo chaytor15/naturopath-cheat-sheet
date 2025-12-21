@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 
 const features = [
   {
@@ -76,134 +77,189 @@ const faqs = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* Navigation */}
-      <header className="border-b border-slate-200 bg-slate-50/80 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      {/* TOP NAV / HEADER (matches app header vibe) */}
+      <header className="fixed top-0 inset-x-0 z-40 h-[60px] bg-white/40 backdrop-blur-md border-b border-white/60 shadow-sm">
+        <div className="max-w-6xl mx-auto h-full px-4 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#72b01d] text-[#fff] font-semibold shadow-sm shadow-slate-200">
-              t.
+            <div className="h-7 w-7 rounded-xl bg-[#142200] flex items-center justify-center text-white text-xs font-semibold shadow-sm">
+              t
             </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-heading text-base font-semibold tracking-tight text-[#4B543B]">
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold tracking-tight text-[#2E332B]">
                 tonic.
               </span>
-              <span className="text-xs text-slate-500">
-                Herbal formulation workspace
+              <span className="text-[10px] uppercase tracking-[0.18em] text-[#7D8472]">
+                Herbal workspace
               </span>
             </div>
           </div>
 
-          <nav className="hidden items-center gap-8 text-sm text-slate-600 md:flex">
-            <a
-              href="https://tonicworkspace.com/#features"
-              className="hover:text-slate-900"
-            >
-              Features
-            </a>
-            <a
-              href="https://tonicworkspace.com/#how-it-works"
-              className="hover:text-slate-900"
-            >
-              How it works
-            </a>
-            <a
-              href="https://tonicworkspace.com/#pricing"
-              className="hover:text-slate-900"
-            >
-              Pricing
-            </a>
-            <a
-              href="https://tonicworkspace.com/#faq"
-              className="hover:text-slate-900"
-            >
-              FAQ
-            </a>
-          </nav>
-
+          {/* Nav */}
           <div className="flex items-center gap-3">
-            <a
-              href="https://tonicworkspace.com/login"
-              className="hidden text-sm text-slate-600 hover:text-slate-900 md:inline-block"
-            >
-              Sign in
-            </a>
-            <a
-              href="https://tonicworkspace.com/early-access"
-              className="inline-flex items-center justify-center rounded-full bg-[#72b01d] px-4 py-2 text-sm font-medium text-[#fff] shadow-sm shadow-slate-300 transition hover:bg-[#3a4231] hover:shadow-md"
-            >
-              Join today
-            </a>
+            <nav className="hidden md:flex items-center gap-3 text-[11px] text-[#4B543B]">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#2E332B] text-white shadow-sm"
+              >
+                <span className="text-xs">🏠</span>
+                <span>Home</span>
+              </Link>
+
+              <a
+                href="#features"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">✨</span>
+                <span>Features</span>
+              </a>
+
+              <a
+                href="#how-it-works"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">🧭</span>
+                <span>How it works</span>
+              </a>
+
+              <a
+                href="#pricing"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">💳</span>
+                <span>Pricing</span>
+              </a>
+
+              <a
+                href="#faq"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
+              >
+                <span className="text-xs">❓</span>
+                <span>FAQ</span>
+              </a>
+            </nav>
+
+            {/* CTAs */}
+            <div className="flex items-center gap-2">
+              <a
+                href="https://tonicworkspace.com/login"
+                className="hidden md:inline-flex items-center justify-center px-3 py-1.5 rounded-full text-[11px] text-[#4B543B] hover:bg-white/60"
+              >
+                Sign in
+              </a>
+              <a
+                href="https://tonicworkspace.com/early-access"
+                className="inline-flex items-center justify-center rounded-full bg-[#142200] px-4 py-2 text-[11px] font-semibold text-white shadow-sm hover:bg-[#6aa318]"
+              >
+                Join today
+              </a>
+            </div>
           </div>
         </div>
       </header>
 
-      <main>
+      <main className="pt-[84px]">
         {/* Hero */}
         <section className="relative w-full overflow-hidden bg-white py-20 px-4 sm:px-6 lg:px-8">
-  {/* Animated gradient halo */}
-  <div
-    className="pointer-events-none absolute inset-0 -z-10 hero-gradient"
-    aria-hidden="true"
-  />
+          {/* Animated gradient halo */}
+          <div
+            className="pointer-events-none absolute inset-0 -z-10 hero-gradient"
+            aria-hidden="true"
+          />
 
-  {/* Soft top fade so the gradient doesn’t clash with nav */}
-  <div className="pointer-events-none absolute inset-x-0 top-0 h-32 -z-10 bg-gradient-to-b from-white via-white/70 to-transparent" />
+          {/* Soft top fade so the gradient doesn’t clash with nav */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-32 -z-10 bg-gradient-to-b from-white via-white/70 to-transparent" />
 
-  <div className="relative mx-auto flex max-w-4xl flex-col items-center text-center">
-    <span className="inline-flex items-center rounded-full border border-[#4B543B33] bg-white/80 px-4 py-1 text-xs font-medium text-[#4B543B] shadow-sm backdrop-blur-sm">
-      Built by practising naturopaths
-    </span>
+          <div className="relative mx-auto flex max-w-4xl flex-col items-center text-center">
+            <span className="inline-flex items-center rounded-full border border-[#4B543B33] bg-white/80 px-4 py-1 text-xs font-medium text-[#4B543B] shadow-sm backdrop-blur-sm">
+              Built by practising naturopaths
+            </span>
 
-    <h1 className="mt-6 font-sans text-4xl font-bold italic text-[#72b01d] sm:text-5xl md:text-6xl">
-      smarter
-      <span className="text-[#72b01d]"> herbal formulas</span>
-      <span className="mt-2 block text-[#142200]">
-        in minutes, not hours.
-      </span>
-    </h1>
+            <h1 className="mt-6 font-sans text-4xl font-bold italic text-[#72b01d] sm:text-5xl md:text-6xl">
+              smarter
+              <span className="text-[#72b01d]"> herbal formulas</span>
+              <span className="mt-2 block text-[#142200]">in minutes, not hours.</span>
+            </h1>
 
-    <p className="mt-6 max-w-2xl text-base text-slate-700 font-sans">
-      tonic. is a herbal formulation workspace that helps naturopaths build
-      safe, effective herbal blends faster, with dosage ranges, herb actions,
-      and body systems all in one calm, focused screen.
-    </p>
+            <p className="mt-6 max-w-2xl text-base text-slate-700 font-sans">
+              tonic. is a herbal formulation workspace that helps naturopaths build
+              safe, effective herbal blends faster, with dosage ranges, herb actions,
+              and body systems all in one calm, focused screen.
+            </p>
 
-    <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-      <a
-        href="https://tonicworkspace.com/early-access"
-        className="inline-flex items-center justify-center rounded-full bg-[#142200] px-8 py-3 text-sm font-semibold text-white shadow-sm shadow-[#8ED08155] transition hover:bg-[#6aa318] hover:shadow-md hover:-translate-y-0.5"
-      >
-        Request early access
-      </a>
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+              <a
+                href="https://tonicworkspace.com/early-access"
+                className="inline-flex items-center justify-center rounded-full bg-[#142200] px-8 py-3 text-sm font-semibold text-white shadow-sm shadow-[#8ED08155] transition hover:bg-[#6aa318] hover:shadow-md hover:-translate-y-0.5"
+              >
+                Request early access
+              </a>
 
-      <a
-        href="https://tonicworkspace.com/#demo"
-        className="inline-flex items-center justify-center text-sm font-medium text-slate-700 hover:text-slate-900"
-      >
-        View live demo
-        <span className="ml-1.5 text-lg" aria-hidden>
-          ↗
-        </span>
-      </a>
-    </div>
+              <a
+                href="https://tonicworkspace.com/#demo"
+                className="inline-flex items-center justify-center text-sm font-medium text-slate-700 hover:text-slate-900"
+              >
+                View live demo
+                <span className="ml-1.5 text-lg" aria-hidden>
+                  ↗
+                </span>
+              </a>
+            </div>
 
-    <p className="mt-6 text-xs text-slate-500 font-sans">
-      Early access is limited to practising naturopaths and medical herbalists.
-    </p>
-  </div>
-</section>
-
-
+            <p className="mt-6 text-xs text-slate-500 font-sans">
+              Early access is limited to practising naturopaths and medical herbalists.
+            </p>
+          </div>
+        </section>
 
         {/* How it works */}
-      
+        <section id="how-it-works" className="bg-slate-50 py-16">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+              <div>
+                <h2 className="text-2xl font-semibold text-[#4B543B] sm:text-3xl">
+                  A simple flow that matches a consult.
+                </h2>
+                <p className="mt-3 max-w-xl text-sm text-slate-700">
+                  Start with intent, add herbs with context, and export a clean outcome
+                  without breaking your rhythm.
+                </p>
+              </div>
+              <a
+                href="https://tonicworkspace.com/early-access"
+                className="inline-flex items-center justify-center rounded-full bg-[#4B543B] px-5 py-2.5 text-sm font-medium text-[#DCE2AA] shadow-sm shadow-slate-300 transition hover:bg-[#3a4231] hover:shadow-md hover:-translate-y-0.5"
+              >
+                Get on the early access list
+              </a>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-3">
+              {steps.map((s) => (
+                <div
+                  key={s.number}
+                  className="rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-lg p-6 shadow-sm shadow-slate-100"
+                >
+                  <div className="inline-flex items-center gap-2">
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                      {s.number}
+                    </span>
+                    <h3 className="text-sm font-semibold text-[#4B543B]">
+                      {s.title}
+                    </h3>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-700">{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* Features */}
         <section id="features" className="bg-slate-50 py-16">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
               <div>
-                <h2 className="font-heading text-2xl font-semibold text-[#4B543B] sm:text-3xl">
+                <h2 className="text-2xl font-semibold text-[#4B543B] sm:text-3xl">
                   All your herbal thinking,
                   <span className="block text-[#4B543B]/80">
                     in one quiet workspace.
@@ -227,9 +283,9 @@ export default function LandingPage() {
               {features.map((feature) => (
                 <div
                   key={feature.name}
-                  className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100 transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="flex flex-col rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-lg p-5 shadow-sm shadow-slate-100 transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <h3 className="font-heading text-base font-semibold text-[#4B543B]">
+                  <h3 className="text-base font-semibold text-[#4B543B]">
                     {feature.name}
                   </h3>
                   <p className="mt-2 text-sm text-slate-700">{feature.description}</p>
@@ -245,7 +301,7 @@ export default function LandingPage() {
             <div className="inline-flex rounded-full bg-[#8ED08133] px-3 py-1 text-xs font-medium text-[#4B543B] ring-1 ring-[#8ED08155]">
               “I just want one place to think through my formulas.”
             </div>
-            <h2 className="mt-6 font-heading text-2xl font-semibold text-[#4B543B] sm:text-3xl">
+            <h2 className="mt-6 text-2xl font-semibold text-[#4B543B] sm:text-3xl">
               Built by practitioners who sit in front of patients every week.
             </h2>
             <p className="mt-3 text-sm text-slate-700">
@@ -260,7 +316,7 @@ export default function LandingPage() {
         <section id="pricing" className="border-t border-slate-200 bg-white py-16">
           <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
             <div className="text-center">
-              <h2 className="font-heading text-2xl font-semibold text-[#4B543B] sm:text-3xl">
+              <h2 className="text-2xl font-semibold text-[#4B543B] sm:text-3xl">
                 Pricing made for small clinics and solo practitioners.
               </h2>
               <p className="mt-3 text-sm text-slate-700">
@@ -271,8 +327,8 @@ export default function LandingPage() {
 
             <div className="mt-10 grid gap-6 md:grid-cols-3">
               {/* Solo */}
-              <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
-                <h3 className="font-heading text-base font-semibold text-[#4B543B]">
+              <div className="flex flex-col rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-lg p-6 shadow-sm shadow-slate-100">
+                <h3 className="text-base font-semibold text-[#4B543B]">
                   Solo practitioner
                 </h3>
                 <p className="mt-2 text-sm text-slate-700">
@@ -280,10 +336,7 @@ export default function LandingPage() {
                 </p>
                 <p className="mt-6 text-3xl font-semibold text-[#4B543B]">
                   TBD
-                  <span className="text-sm font-normal text-slate-600">
-                    {" "}
-                    / month
-                  </span>
+                  <span className="text-sm font-normal text-slate-600"> / month</span>
                 </p>
                 <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-700">
                   <li>1 practitioner seat</li>
@@ -304,7 +357,7 @@ export default function LandingPage() {
                 <span className="absolute -top-3 left-6 rounded-full bg-[#B57F50] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#DCE2AA] shadow-sm">
                   Most popular
                 </span>
-                <h3 className="mt-1 font-heading text-base font-semibold text-[#4B543B]">
+                <h3 className="mt-1 text-base font-semibold text-[#4B543B]">
                   Clinic team
                 </h3>
                 <p className="mt-2 text-sm text-slate-700">
@@ -312,10 +365,7 @@ export default function LandingPage() {
                 </p>
                 <p className="mt-6 text-3xl font-semibold text-[#4B543B]">
                   TBD
-                  <span className="text-sm font-normal text-slate-600">
-                    {" "}
-                    / month
-                  </span>
+                  <span className="text-sm font-normal text-slate-600"> / month</span>
                 </p>
                 <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-700">
                   <li>Up to 5 seats</li>
@@ -332,19 +382,14 @@ export default function LandingPage() {
               </div>
 
               {/* Student */}
-              <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
-                <h3 className="font-heading text-base font-semibold text-[#4B543B]">
-                  Student
-                </h3>
+              <div className="flex flex-col rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-lg p-6 shadow-sm shadow-slate-100">
+                <h3 className="text-base font-semibold text-[#4B543B]">Student</h3>
                 <p className="mt-2 text-sm text-slate-700">
                   For students in accredited naturopathic or herbal medicine programs.
                 </p>
                 <p className="mt-6 text-3xl font-semibold text-[#4B543B]">
                   TBD
-                  <span className="text-sm font-normal text-slate-600">
-                    {" "}
-                    / month
-                  </span>
+                  <span className="text-sm font-normal text-slate-600"> / month</span>
                 </p>
                 <ul className="mt-4 flex-1 space-y-2 text-sm text-slate-700">
                   <li>1 seat</li>
@@ -366,27 +411,20 @@ export default function LandingPage() {
         {/* FAQ */}
         <section id="faq" className="bg-slate-50 py-16">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-            <h2 className="font-heading text-2xl font-semibold text-[#4B543B] sm:text-3xl">
+            <h2 className="text-2xl font-semibold text-[#4B543B] sm:text-3xl">
               Questions practitioners are already asking.
             </h2>
-          <div className="mt-8 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+
+            <div className="mt-8 divide-y divide-slate-200 rounded-3xl border border-slate-200 bg-white/80 backdrop-blur-lg">
               {faqs.map((item) => (
-                <details
-                  key={item.q}
-                  className="group"
-                  open={item.q === faqs[0].q}
-                >
+                <details key={item.q} className="group" open={item.q === faqs[0].q}>
                   <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-4">
-                    <span className="text-sm font-medium text-slate-800">
-                      {item.q}
-                    </span>
+                    <span className="text-sm font-medium text-slate-800">{item.q}</span>
                     <span className="ml-4 text-xl text-slate-500 transition group-open:rotate-45">
                       +
                     </span>
                   </summary>
-                  <div className="px-5 pb-4 text-sm text-slate-700">
-                    {item.a}
-                  </div>
+                  <div className="px-5 pb-4 text-sm text-slate-700">{item.a}</div>
                 </details>
               ))}
             </div>
@@ -396,7 +434,7 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="bg-[#4B543B] py-16">
           <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-            <h2 className="font-heading text-2xl font-semibold text-[#DCE2AA] sm:text-3xl">
+            <h2 className="text-2xl font-semibold text-[#DCE2AA] sm:text-3xl">
               Help shape the herbal formulation workspace you always wanted.
             </h2>
             <p className="mt-3 text-sm text-[#DCE2AA]/80">
@@ -431,10 +469,7 @@ export default function LandingPage() {
             <span>© {new Date().getFullYear()} tonic. All rights reserved.</span>
           </div>
           <div className="flex flex-wrap gap-4">
-            <a
-              href="https://tonicworkspace.com/terms"
-              className="hover:text-[#DCE2AA]"
-            >
+            <a href="https://tonicworkspace.com/terms" className="hover:text-[#DCE2AA]">
               Terms
             </a>
             <a
@@ -452,6 +487,27 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Keep your existing helper component in-file */}
+      <style jsx global>{`
+        .hero-gradient {
+          background: radial-gradient(
+              circle at 20% 20%,
+              rgba(142, 208, 129, 0.35),
+              transparent 55%
+            ),
+            radial-gradient(
+              circle at 80% 30%,
+              rgba(114, 176, 29, 0.22),
+              transparent 60%
+            ),
+            radial-gradient(
+              circle at 50% 80%,
+              rgba(181, 127, 80, 0.18),
+              transparent 55%
+            );
+        }
+      `}</style>
     </div>
   );
 }
@@ -478,9 +534,7 @@ function MockHerbRow({ name, common, dose, range, status }: MockHerbRowProps) {
   return (
     <div className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1.5">
       <div className="min-w-0 pr-2">
-        <p className="truncate text-[11px] font-medium text-[#4B543B]">
-          {name}
-        </p>
+        <p className="truncate text-[11px] font-medium text-[#4B543B]">{name}</p>
         <p className="truncate text-[10px] text-slate-600">{common}</p>
       </div>
       <div className="flex items-center gap-3">

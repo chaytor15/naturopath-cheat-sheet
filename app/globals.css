@@ -49,3 +49,18 @@ body {
     transform: translate3d(-5px, -10px, 0) scale(1.02);
   }
 }
+
+/* Prevent layout shift from scrollbar */
+.stable-scroll {
+  /* Modern browsers: reserve space for scrollbar, only show when needed */
+  scrollbar-gutter: stable;
+  overflow-y: auto;
+}
+
+/* Fallback for browsers that don't support scrollbar-gutter */
+@supports not (scrollbar-gutter: stable) {
+  .stable-scroll {
+    /* Always show scrollbar to prevent layout shift */
+    overflow-y: scroll;
+  }
+}

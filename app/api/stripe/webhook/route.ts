@@ -1,75 +1,69 @@
-import Stripe from "stripe";
+// app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10" as any,
-});
-
-
 export async function POST(req: Request) {
-  const sig = req.headers.get("stripe-signature");
-  if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("Missing STRIPE_WEBHOOK_SECRET");
+    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
+  }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-  const rawBody = await req.text();
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) {
+    return NextResponse.json(
+      { error: "Missing stripe-signature" },
+      { status: 400 }
+    );
+  }
 
   let event: Stripe.Event;
 
   try {
+    const rawBody = await req.text();
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err: any) {
-    console.error("webhook signature verify failed", err?.message);
+    console.error("Webhook signature verification failed:", err?.message);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // ✅ When checkout completes, flip plan to paid
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const supabaseUserId =
-        (session.client_reference_id as string | null) ||
-        (session.metadata?.supabase_user_id as string | undefined);
-
-      if (!supabaseUserId) {
-        console.warn("No supabase user id found on session");
-        return NextResponse.json({ received: true });
-      }
-
-      // Optionally store stripe customer id too
-      const stripeCustomerId =
+      const supabaseUserId = session.metadata?.supabase_user_id;
+      const customerId =
         typeof session.customer === "string" ? session.customer : null;
 
-      const { error } = await supabaseAdmin
-        .from("profiles")
-        .update({
-          plan: "paid",
-          stripe_customer_id: stripeCustomerId ?? undefined,
-        })
-        .eq("id", supabaseUserId);
-
-      if (error) {
-        console.error("Failed updating profile plan", error);
-        return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+      if (!supabaseUserId) {
+        console.error("Missing supabase_user_id in session metadata");
+        return NextResponse.json({ received: true }, { status: 200 });
       }
 
-      return NextResponse.json({ received: true });
+      const updatePayload: Record<string, any> = { plan: "paid" };
+      if (customerId) updatePayload.stripe_customer_id = customerId;
+
+      const { error: updateErr } = await supabaseAdmin
+        .from("profiles")
+        .update(updatePayload)
+        .eq("id", supabaseUserId);
+
+      if (updateErr) {
+        console.error("Failed to update profile plan:", updateErr);
+        return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+      }
     }
 
-    // Optional: handle cancellations later (not required for MVP)
-    // if (event.type === "customer.subscription.deleted") { ... set plan free ... }
-
-    return NextResponse.json({ received: true });
-  } catch (e: any) {
-    console.error("webhook handler error", e);
-    return NextResponse.json({ error: "Webhook handler error" }, { status: 500 });
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err: any) {
+    console.error("Webhook handler error:", err);
+    return NextResponse.json(
+      { error: "Webhook handler failed" },
+      { status: 500 }
+    );
   }
 }

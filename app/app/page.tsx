@@ -4,7 +4,11 @@ import { useEffect, useState, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import jsPDF from "jspdf"; // npm install jspdf
 import AuthButton from "@/components/AuthButton";
-import { useRouter, useSearchParams } from "next/navigation";
+import AppHeader from "@/components/AppHeader";
+import Sidebar from "@/components/Sidebar";
+import MainContent from "@/components/MainContent";
+import TagInput from "@/components/TagInput";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 
 
@@ -54,8 +58,9 @@ type SavedTonic = {
   workspaceHerbs: WorkspaceHerb[];
   clientName: string;
   tonicPurpose: string;
-  medications: string;
-  existingConditionsText: string;
+  medications: string | string[]; // Support both for backward compatibility
+  existingConditionsText: string | string[]; // Support both for backward compatibility
+  precautions: string | string[]; // Support both for backward compatibility
   patientInstructions: string;
 };
 
@@ -63,6 +68,12 @@ type PendingLockedCondition = {
   id: string;
   name?: string;
   returnTo?: string;
+};
+
+type Client = {
+  id: string;
+  full_name: string;
+  email: string | null;
 };
 
 const TONIC_STORAGE_KEY = "tonic_current";
@@ -167,10 +178,14 @@ function isDoseWithinBottleRange(
 export default function HomePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
+  // Auth check - redirect to login if not logged in
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/login");
+      if (!data.session) {
+        router.replace("/login");
+      }
     });
   }, [router]);
 
@@ -185,10 +200,38 @@ export default function HomePage() {
   const [selectedHerb, setSelectedHerb] = useState<HerbRow | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  const [clients, setClients] = useState<Client[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [clientName, setClientName] = useState("");
+  const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientDob, setNewClientDob] = useState("");
+  const [newClientTags, setNewClientTags] = useState("");
+  const [newClientFlags, setNewClientFlags] = useState({
+    pregnancy: false,
+    lactation: false,
+    anticoagulants: false,
+    pediatric: false,
+    kidneyDisease: false,
+    liverDisease: false,
+    allergies: "",
+  });
+  const [newClientMedications, setNewClientMedications] = useState<string[]>([]);
+  const [newClientExistingConditions, setNewClientExistingConditions] = useState<string[]>([]);
+  const [creatingClient, setCreatingClient] = useState(false);
   const [tonicPurpose, setTonicPurpose] = useState("");
-  const [medications, setMedications] = useState("");
-  const [existingConditionsText, setExistingConditionsText] = useState("");
+  const [medications, setMedications] = useState<string[]>([]);
+  const [existingConditionsText, setExistingConditionsText] = useState<string[]>([]);
+  const [precautions, setPrecautions] = useState<string[]>([]);
+  const [showMedicationInput, setShowMedicationInput] = useState(false);
+  const [showExistingConditionInput, setShowExistingConditionInput] = useState(false);
+  const [showPrecautionsInput, setShowPrecautionsInput] = useState(false);
+  const [clientFormulas, setClientFormulas] = useState<Array<{id: string; title: string | null; created_at: string; formula_data: SavedTonic}>>([]);
+  const [loadedFormulaId, setLoadedFormulaId] = useState<string | null>(null);
 
   const [tonicName, setTonicName] = useState("");
   const [patientInstructions, setPatientInstructions] = useState("");
@@ -247,8 +290,8 @@ export default function HomePage() {
 
   // Bottle / volume calculations
   const bottleVolumeMl = bottleSize ? Number(bottleSize) : 0;
-  const numericDose = doseMl ? Math.round(Number(doseMl)) : 0;
-  const numericFrequency = frequencyPerDay ? Math.round(Number(frequencyPerDay)) : 0;
+  const numericDose = doseMl ? Number(doseMl) : 0;
+  const numericFrequency = frequencyPerDay ? Number(frequencyPerDay) : 0;
 
   const dailyDoseMl =
     numericDose > 0 && numericFrequency > 0 ? numericDose * numericFrequency : 0;
@@ -440,33 +483,221 @@ const handleConditionChange = (nextId: string) => {
 };
 
 
-  // Load saved tonic from localStorage on mount
+  // Reset workspace when navigating away from /app
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = localStorage.getItem(TONIC_STORAGE_KEY);
-    if (!stored) return;
-
-    try {
-      const saved: SavedTonic = JSON.parse(stored);
-
-      setCurrentTonicId(saved.id || null);
-      setTonicName(saved.tonicName ?? "");
-      setBottleSize(saved.bottleSize ?? "");
-      setDoseMl(saved.doseMl ?? "");
-      setFrequencyPerDay(saved.frequencyPerDay ?? "");
-      setWorkspaceHerbs(saved.workspaceHerbs ?? []);
-      setClientName(saved.clientName ?? "");
-      setTonicPurpose(saved.tonicPurpose ?? "");
-      setMedications(saved.medications ?? "");
-      setExistingConditionsText(saved.existingConditionsText ?? "");
-      setPatientInstructions(saved.patientInstructions ?? "");
-
-      // loaded state is synced with last saved
-      setSaveStatus("saved");
-    } catch (e) {
-      console.error("Failed to parse tonic from storage", e);
+    // Reset all state when navigating away from /app
+    if (pathname !== "/app") {
+      setClientName("");
+      setTonicPurpose("");
+      setMedications([]);
+      setExistingConditionsText([]);
+      setPrecautions([]);
+      setTonicName("");
+      setPatientInstructions("");
+      setBottleSize("");
+      setDoseMl("");
+      setFrequencyPerDay("");
+      setWorkspaceHerbs([]);
+      setCurrentTonicId(null);
+      setSaveStatus("idle");
+      setSelectedClientId("");
+      setShowMedicationInput(false);
+      setShowExistingConditionInput(false);
+      setLoadedFormulaId(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(TONIC_STORAGE_KEY);
+      }
+      return;
     }
-  }, []);
+
+    // When on /app page, only load from localStorage if there are URL params (formula/duplicate)
+    // Otherwise, start with a clean slate
+    if (typeof window === "undefined") return;
+    
+    const formulaId = searchParams.get("formula");
+    const duplicateId = searchParams.get("duplicate");
+    
+    // Only load from localStorage if explicitly loading a formula from URL
+    // Otherwise, reset to empty state
+    if (!formulaId && !duplicateId) {
+      // No URL params - reset to clean state
+      setClientName("");
+      setTonicPurpose("");
+      setMedications([]);
+      setExistingConditionsText([]);
+      setPrecautions([]);
+      setTonicName("");
+      setPatientInstructions("");
+      setBottleSize("");
+      setDoseMl("");
+      setFrequencyPerDay("");
+      setWorkspaceHerbs([]);
+      setCurrentTonicId(null);
+      setSaveStatus("idle");
+      setSelectedClientId("");
+      setShowMedicationInput(false);
+      setShowExistingConditionInput(false);
+      localStorage.removeItem(TONIC_STORAGE_KEY);
+      return;
+    }
+    
+    // If we have formula/duplicate params, the URL-based loading logic will handle it
+    // (this is handled in the separate useEffect for loading formulas from URL)
+  }, [pathname, searchParams]);
+
+  // Match saved client name to client ID when clients are loaded
+  useEffect(() => {
+    if (clientName && clients.length > 0 && !selectedClientId) {
+      const matchedClient = clients.find((c) => c.full_name === clientName);
+      if (matchedClient) {
+        setSelectedClientId(matchedClient.id);
+      }
+    }
+  }, [clients, clientName, selectedClientId]);
+
+  // Load formula from URL params
+  useEffect(() => {
+    const loadFormulaFromUrl = async () => {
+      const formulaId = searchParams.get("formula");
+      const duplicateId = searchParams.get("duplicate");
+      const clientId = searchParams.get("client");
+
+      // Load client data if client param is present
+      if (clientId) {
+        setSelectedClientId(clientId);
+        const clientMedications = searchParams.get("medications");
+        const clientExistingConditions = searchParams.get("existingConditions");
+        if (clientMedications) {
+          try {
+            const parsed = JSON.parse(decodeURIComponent(clientMedications));
+            setMedications(Array.isArray(parsed) ? parsed : [parsed]);
+          } catch {
+            setMedications([decodeURIComponent(clientMedications)]);
+          }
+        }
+        if (clientExistingConditions) {
+          try {
+            const parsed = JSON.parse(decodeURIComponent(clientExistingConditions));
+            setExistingConditionsText(Array.isArray(parsed) ? parsed : [parsed]);
+          } catch {
+            setExistingConditionsText([decodeURIComponent(clientExistingConditions)]);
+          }
+        }
+      }
+
+      // Load formula to edit
+      if (formulaId) {
+        try {
+          const { data: userRes } = await supabase.auth.getUser();
+          if (!userRes.user) return;
+
+          const { data, error } = await supabase
+            .from("formulas")
+            .select("*")
+            .eq("id", formulaId)
+            .eq("user_id", userRes.user.id)
+            .single();
+
+          if (error) {
+            console.error("Failed to load formula:", error);
+            return;
+          }
+
+          if (data?.formula_data) {
+            const formulaData: SavedTonic = data.formula_data;
+            setCurrentTonicId(data.id);
+            setTonicName(formulaData.tonicName || "");
+            setBottleSize(formulaData.bottleSize || "");
+            setDoseMl(formulaData.doseMl || "");
+            setFrequencyPerDay(formulaData.frequencyPerDay || "");
+            setWorkspaceHerbs(formulaData.workspaceHerbs || []);
+            setClientName(formulaData.clientName || "");
+            setTonicPurpose(formulaData.tonicPurpose || "");
+            const meds = formulaData.medications || [];
+            const conditions = formulaData.existingConditionsText || [];
+            const formulaPrecautions = formulaData.precautions || [];
+            setMedications(Array.isArray(meds) ? meds : meds ? [meds] : []);
+            setExistingConditionsText(Array.isArray(conditions) ? conditions : conditions ? [conditions] : []);
+            setPrecautions(Array.isArray(formulaPrecautions) ? formulaPrecautions : formulaPrecautions ? [formulaPrecautions] : []);
+            setPatientInstructions(formulaData.patientInstructions || "");
+
+            // Set client ID if available
+            if (data.client_id) {
+              setSelectedClientId(data.client_id);
+            }
+
+            // Save to localStorage
+            localStorage.setItem(TONIC_STORAGE_KEY, JSON.stringify(formulaData));
+      setSaveStatus("saved");
+          }
+    } catch (e) {
+          console.error("Failed to load formula:", e);
+        }
+      }
+
+      // Load formula to duplicate
+      if (duplicateId) {
+        try {
+          const { data: userRes } = await supabase.auth.getUser();
+          if (!userRes.user) return;
+
+          const { data, error } = await supabase
+            .from("formulas")
+            .select("*")
+            .eq("id", duplicateId)
+            .eq("user_id", userRes.user.id)
+            .single();
+
+          if (error) {
+            console.error("Failed to load formula for duplication:", error);
+            return;
+          }
+
+          if (data?.formula_data) {
+            const formulaData: SavedTonic = data.formula_data;
+            const duplicateName = searchParams.get("name") || `${formulaData.tonicName || "Untitled"} (Copy)`;
+
+            // Create new formula with duplicated data
+            const newId = crypto.randomUUID();
+            setCurrentTonicId(newId);
+            setTonicName(duplicateName);
+            setBottleSize(formulaData.bottleSize || "");
+            setDoseMl(formulaData.doseMl || "");
+            setFrequencyPerDay(formulaData.frequencyPerDay || "");
+            setWorkspaceHerbs(formulaData.workspaceHerbs || []);
+            setClientName(formulaData.clientName || "");
+            setTonicPurpose(formulaData.tonicPurpose || "");
+            const meds = formulaData.medications || [];
+            const conditions = formulaData.existingConditionsText || [];
+            const formulaPrecautions = formulaData.precautions || [];
+            setMedications(Array.isArray(meds) ? meds : meds ? [meds] : []);
+            setExistingConditionsText(Array.isArray(conditions) ? conditions : conditions ? [conditions] : []);
+            setPrecautions(Array.isArray(formulaPrecautions) ? formulaPrecautions : formulaPrecautions ? [formulaPrecautions] : []);
+            setPatientInstructions(formulaData.patientInstructions || "");
+
+            // Set client ID if available
+            if (data.client_id) {
+              setSelectedClientId(data.client_id);
+            }
+
+            // Save to localStorage
+            const duplicatedTonic: SavedTonic = {
+              ...formulaData,
+              id: newId,
+              tonicName: duplicateName,
+            };
+            localStorage.setItem(TONIC_STORAGE_KEY, JSON.stringify(duplicatedTonic));
+            setSaveStatus("idle");
+          }
+        } catch (e) {
+          console.error("Failed to duplicate formula:", e);
+        }
+      }
+    };
+
+    loadFormulaFromUrl();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Recompute withinRange when bottle size / dose change
   useEffect(() => {
@@ -483,6 +714,132 @@ const handleConditionChange = (nextId: string) => {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bottleVolumeMl, dailyDoseMl]);
+
+  // LOAD CLIENTS
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        const { data: userRes } = await supabase.auth.getUser();
+        if (!userRes.user) return;
+
+        const { data, error } = await supabase
+          .from("clients")
+          .select("id, full_name, email")
+          .eq("user_id", userRes.user.id)
+          .order("full_name", { ascending: true });
+
+        if (error) {
+          // If table doesn't exist, just set empty array (table will be created when needed)
+          if (error.code === "42P01" || error.message?.includes("does not exist")) {
+            console.log("Clients table does not exist yet. It will be created when you add your first client.");
+            setClients([]);
+            return;
+          }
+          throw error;
+        }
+        setClients(data || []);
+      } catch (e: any) {
+        console.error("Failed to load clients:", e);
+        // Set empty array on error so the app continues to work
+        setClients([]);
+      }
+    };
+
+    loadClients();
+  }, []);
+
+  // Update clientName and load client data when selectedClientId changes
+  useEffect(() => {
+    const loadClientData = async () => {
+      if (selectedClientId) {
+        const client = clients.find((c) => c.id === selectedClientId);
+        setClientName(client?.full_name || "");
+
+        // Load full client data including flags
+        try {
+          const { data: userRes } = await supabase.auth.getUser();
+          if (!userRes.user) return;
+
+          const { data, error } = await supabase
+            .from("clients")
+            .select("flags, id")
+            .eq("id", selectedClientId)
+            .eq("user_id", userRes.user.id)
+            .single();
+
+          if (!error && data) {
+            // Always sync medications, existing conditions, and precautions from client profile when client changes
+            const flags = data.flags || {};
+            const meds = flags.medications;
+            const conditions = flags.existingConditions;
+            const clientPrecautions = flags.otherPrecautions;
+            
+            if (meds) {
+              setMedications(Array.isArray(meds) ? meds : [meds]);
+            } else {
+              setMedications([]);
+            }
+            
+            if (conditions) {
+              setExistingConditionsText(Array.isArray(conditions) ? conditions : [conditions]);
+            } else {
+              setExistingConditionsText([]);
+            }
+            
+            // Build precautions array from boolean flags and otherPrecautions
+            const precautionsArray: string[] = [];
+            
+            // Convert boolean flags to strings
+            if (flags.pregnancy === true) precautionsArray.push("Pregnant");
+            if (flags.lactation === true) precautionsArray.push("Lactation");
+            if (flags.anticoagulants === true) precautionsArray.push("Anticoagulants");
+            if (flags.pediatric === true) precautionsArray.push("Pediatric");
+            if (flags.kidneyDisease === true) precautionsArray.push("Kidney Disease");
+            if (flags.liverDisease === true) precautionsArray.push("Liver Disease");
+            
+            // Add otherPrecautions (string array) if they exist
+            if (clientPrecautions !== null && clientPrecautions !== undefined) {
+              if (Array.isArray(clientPrecautions)) {
+                precautionsArray.push(...clientPrecautions.filter(p => p && p.trim() !== ''));
+              } else if (typeof clientPrecautions === 'string' && clientPrecautions.trim() !== '') {
+                precautionsArray.push(clientPrecautions);
+              }
+            }
+            
+            setPrecautions(precautionsArray);
+          } else {
+            // If no flags or error, clear medications, conditions, and precautions
+            setMedications([]);
+            setExistingConditionsText([]);
+            setPrecautions([]);
+          }
+
+          // Load formulas for this client
+          const { data: formulasData, error: formulasError } = await supabase
+            .from("formulas")
+            .select("id, title, created_at, formula_data")
+            .eq("client_id", selectedClientId)
+            .eq("user_id", userRes.user.id)
+            .order("created_at", { ascending: false });
+
+          if (!formulasError && formulasData) {
+            setClientFormulas(formulasData);
+          } else if (formulasError) {
+            console.error("Failed to load formulas:", formulasError);
+            setClientFormulas([]);
+          }
+        } catch (e) {
+          console.error("Failed to load client data:", e);
+        }
+      } else {
+        setClientName("");
+        setClientFormulas([]);
+      }
+    };
+
+    loadClientData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClientId, clients]);
 
   // LOAD BODY SYSTEMS
   useEffect(() => {
@@ -703,10 +1060,16 @@ if (isLockedSelection) {
     setIsWorkspaceDrawerOpen(false);
   };
 
-  const handleSaveTonic = () => {
+  const handleSaveTonic = async () => {
     if (typeof window === "undefined") return;
 
     try {
+      const { data: userRes } = await supabase.auth.getUser();
+      if (!userRes.user) {
+        setSaveStatus("error");
+        return;
+      }
+
       const id = currentTonicId ?? crypto.randomUUID();
       const tonicToSave: SavedTonic = {
         id,
@@ -719,24 +1082,93 @@ if (isLockedSelection) {
         tonicPurpose,
         medications,
         existingConditionsText,
+        precautions,
         patientInstructions,
       };
 
+      // Save to localStorage
       localStorage.setItem(TONIC_STORAGE_KEY, JSON.stringify(tonicToSave));
+
+      // Save to database (formulas table) - save as "final" when saving a completed tonic
+      const formulaData = {
+        id,
+        client_id: selectedClientId || null,
+        user_id: userRes.user.id,
+        title: tonicName || "Untitled Tonic",
+        status: "final" as const, // Changed to "final" when saving
+        formula_data: tonicToSave,
+      };
+
+      // Upsert formula (insert or update if exists)
+      const { data: savedFormula, error: formulaError } = await supabase
+        .from("formulas")
+        .upsert(formulaData, {
+          onConflict: "id",
+        })
+        .select();
+
+      if (formulaError) {
+        console.error("Failed to save formula to database:", {
+          message: formulaError.message,
+          details: formulaError.details,
+          hint: formulaError.hint,
+          code: formulaError.code,
+          fullError: formulaError,
+        });
+        setSaveStatus("error");
+        alert(`Failed to save formula: ${formulaError.message || "Unknown error"}`);
+        return;
+      }
+
+      if (savedFormula && savedFormula.length > 0) {
+        console.log("Formula saved successfully:", savedFormula[0]);
+      }
+
+      // Update client profile with medications and existing conditions if client is selected
+      if (selectedClientId && (medications.length > 0 || existingConditionsText.length > 0)) {
+        const { data: clientData } = await supabase
+          .from("clients")
+          .select("flags")
+          .eq("id", selectedClientId)
+          .single();
+
+        if (clientData) {
+          const updatedFlags = {
+            ...(clientData.flags || {}),
+            medications: medications,
+            existingConditions: existingConditionsText,
+          };
+
+          await supabase
+            .from("clients")
+            .update({ flags: updatedFlags })
+            .eq("id", selectedClientId);
+        }
+      }
+
       setCurrentTonicId(id);
       setSaveStatus("saved");
-    } catch (e) {
-      console.error("Failed to save tonic", e);
+    } catch (e: any) {
+      console.error("Failed to save tonic", {
+        message: e?.message,
+        error: e,
+      });
       setSaveStatus("error");
+      alert(`Failed to save tonic: ${e?.message || "Unknown error"}`);
     }
   };
 
   const handleResetTonic = () => {
+    // Confirm before resetting
+    if (!window.confirm("Are you sure you want to reset the form? All unsaved changes will be lost.")) {
+      return;
+    }
+
     // Clear all client + tonic fields + workspace herbs
     setClientName("");
     setTonicPurpose("");
-    setMedications("");
-    setExistingConditionsText("");
+    setMedications([]);
+    setExistingConditionsText([]);
     setTonicName("");
     setPatientInstructions("");
     setBottleSize("");
@@ -806,8 +1238,8 @@ if (isLockedSelection) {
     addSubheading("Client details");
     addLine(`Client name: ${clientName || "-"}`);
     addLine(`Tonic purpose: ${tonicPurpose || "-"}`);
-    addLine(`Medications: ${medications || "-"}`);
-    addLine(`Existing conditions: ${existingConditionsText || "-"}`);
+    addLine(`Medications: ${medications.length > 0 ? medications.join(", ") : "-"}`);
+    addLine(`Existing conditions: ${existingConditionsText.length > 0 ? existingConditionsText.join(", ") : "-"}`);
     addBlank();
 
     // Tonic details
@@ -1060,81 +1492,10 @@ if (isLockedSelection) {
   );
   return (
     <>
-      {/* TOP NAV / HEADER */}
-      <header className="fixed top-0 inset-x-0 z-40 h-[60px] bg-white/40 backdrop-blur-md border-b border-white/60 shadow-sm">
-        <div className="max-w-6xl mx-auto h-full px-4 flex items-center justify-between">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-xl bg-[#142200] flex items-center justify-center text-white text-xs font-semibold shadow-sm">
-              t
-            </div>
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold tracking-tight text-[#2E332B]">
-                tonic.
-              </span>
-              <span className="text-[10px] uppercase tracking-[0.18em] text-[#7D8472]">
-                Herbal workspace
-              </span>
-            </div>
-          </div>
+      <AppHeader />
+      <Sidebar />
 
-          {/* Nav + Auth */}
-          <div className="flex items-center gap-3">
-            <nav className="flex items-center gap-4 text-[11px] text-[#4B543B]">
-              <a
-                href="https://tonic.example/home"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-              >
-                <span className="text-xs">🏠</span>
-                <span>Home</span>
-              </a>
-              <a
-                href="https://tonic.example/workspace"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#2E332B] text-white shadow-sm"
-              >
-                <span className="text-xs">🧪</span>
-                <span>Workspace</span>
-              </a>
-              <a
-                href="https://tonic.example/herbs"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-              >
-                <span className="text-xs">🌿</span>
-                <span>Herbs</span>
-              </a>
-              <a
-                href="https://tonic.example/clients"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-              >
-                <span className="text-xs">👥</span>
-                <span>Clients</span>
-              </a>
-              <a
-                href="https://tonic.example/settings"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/60"
-              >
-                <span className="text-xs">⚙️</span>
-                <span>Settings</span>
-              </a>
-            </nav>
-
-            <Link
-              href="/profile"
-              className="rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm backdrop-blur hover:bg-white/15"
-            >
-              Profile
-            </Link>
-
-            <AuthButton />
-          </div>
-        </div>
-      </header>
-
-      <main
-        className={`min-h-screen bg-[#F7F8F3] text-slate-900 pt-20 ${
-          isFullScreenTable ? "overflow-hidden" : ""
-        }`}
-      >
+      <MainContent className={isFullScreenTable ? "overflow-hidden" : ""}>
         <div className="max-w-6xl mx-auto py-10 px-4">
           {/* MAIN 3 CARDS */}
           <section className="mb-10 grid gap-6 md:grid-cols-3 items-start">
@@ -1151,68 +1512,501 @@ if (isLockedSelection) {
 
               <div className="grid gap-3">
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
-                    Client name
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-slate-700 font-medium">
+                      Client
                   </label>
+                    <button
+                      type="button"
+                      onClick={() => setCreateClientModalOpen(true)}
+                      className="text-[10px] font-medium text-[#72B01D] hover:text-[#6AA318] hover:underline"
+                    >
+                      + New client
+                    </button>
+                  </div>
+                  <div className="relative">
                   <input
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                    value={clientName}
+                      type="text"
+                      className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      placeholder={!selectedClientId ? "Select a client..." : ""}
+                      value={selectedClientId && !clientSearchQuery ? (clients.find(c => c.id === selectedClientId)?.full_name || clientName || "") : clientSearchQuery}
                     onChange={(e) => {
-                      markUnsaved();
-                      setClientName(e.target.value);
-                    }}
-                    placeholder=""
-                  />
+                        setClientSearchQuery(e.target.value);
+                        setIsClientDropdownOpen(true);
+                      }}
+                      onFocus={() => {
+                        setIsClientDropdownOpen(true);
+                        if (selectedClientId) {
+                          setClientSearchQuery("");
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Delay closing to allow click events
+                        setTimeout(() => {
+                          setIsClientDropdownOpen(false);
+                          setClientSearchQuery("");
+                        }, 200);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setIsClientDropdownOpen(false);
+                          setClientSearchQuery("");
+                        }
+                      }}
+                    />
+                    {isClientDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        <div
+                          className="px-3 py-2 text-[13px] text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          onClick={() => {
+                            markUnsaved();
+                            setSelectedClientId("");
+                            setClientName("");
+                            setMedications([]);
+                            setExistingConditionsText([]);
+                            setLoadedFormulaId(null);
+                            setClientFormulas([]);
+                            setIsClientDropdownOpen(false);
+                            setClientSearchQuery("");
+                            // Reset workspace state
+                            setCurrentTonicId(null);
+                            setTonicName("");
+                            setBottleSize("");
+                            setDoseMl("");
+                            setFrequencyPerDay("");
+                            setWorkspaceHerbs([]);
+                            setTonicPurpose("");
+                            setPatientInstructions("");
+                            setSaveStatus("idle");
+                            if (typeof window !== "undefined") {
+                              localStorage.removeItem(TONIC_STORAGE_KEY);
+                            }
+                          }}
+                        >
+                          Select a client...
+                        </div>
+                        {(() => {
+                          const filteredClients = clientSearchQuery
+                            ? clients.filter((client) =>
+                                client.full_name.toLowerCase().includes(clientSearchQuery.toLowerCase())
+                              )
+                            : clients;
+                          
+                          if (filteredClients.length === 0) {
+                            return (
+                              <div className="px-3 py-2 text-[13px] text-slate-500">
+                                No clients found
+                              </div>
+                            );
+                          }
+                          
+                          return filteredClients.map((client) => (
+                            <div
+                              key={client.id}
+                              className={`px-3 py-2 text-[13px] cursor-pointer ${
+                                selectedClientId === client.id
+                                  ? "bg-[#72B01D] text-white"
+                                  : "text-slate-900 hover:bg-slate-50"
+                              }`}
+                              onClick={() => {
+                                markUnsaved();
+                                const newClientId = client.id;
+                                const previousClientId = selectedClientId;
+                                
+                                // If switching to a different client, reset workspace state (but not medications/conditions - useEffect will load those)
+                                if (previousClientId !== newClientId && newClientId) {
+                                  setCurrentTonicId(null);
+                                  setTonicName("");
+                                  setBottleSize("");
+                                  setDoseMl("");
+                                  setFrequencyPerDay("");
+                                  setWorkspaceHerbs([]);
+                                  setTonicPurpose("");
+                                  setPatientInstructions("");
+                                  setLoadedFormulaId(null);
+                                  setSaveStatus("idle");
+                                  if (typeof window !== "undefined") {
+                                    localStorage.removeItem(TONIC_STORAGE_KEY);
+                                  }
+                                }
+                                
+                                setSelectedClientId(newClientId);
+                                setClientSearchQuery("");
+                                setIsClientDropdownOpen(false);
+                                
+                                // If deselecting client, clear all client-related data
+                                if (!newClientId) {
+                                  setClientName("");
+                                  setMedications([]);
+                                  setExistingConditionsText([]);
+                                  setClientFormulas([]);
+                                }
+                              }}
+                            >
+                              {client.full_name}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                  {selectedClientId && clientFormulas.length > 0 && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] text-slate-700 font-medium">
+                          Load Formula
+                        </label>
+                        {loadedFormulaId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // Reset to blank tonic
+                              setCurrentTonicId(null);
+                              setTonicName("");
+                              setBottleSize("");
+                              setDoseMl("");
+                              setFrequencyPerDay("");
+                              setWorkspaceHerbs([]);
+                              setTonicPurpose("");
+                              setMedications([]);
+                              setExistingConditionsText([]);
+                              setPatientInstructions("");
+                              setLoadedFormulaId(null);
+                              setSaveStatus("idle");
+                              localStorage.removeItem(TONIC_STORAGE_KEY);
+                              markUnsaved();
+                            }}
+                            className="text-[9px] text-slate-500 hover:text-slate-700 font-semibold"
+                            title="Clear loaded formula"
+                          >
+                            ✕ Clear
+                          </button>
+                        )}
+                      </div>
+                      <select
+                        className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                        value={loadedFormulaId || ""}
+                        onChange={async (e) => {
+                          const formulaId = e.target.value;
+                          
+                          // If selecting empty option, reset to blank
+                          if (!formulaId) {
+                            setCurrentTonicId(null);
+                            setTonicName("");
+                            setBottleSize("");
+                            setDoseMl("");
+                            setFrequencyPerDay("");
+                            setWorkspaceHerbs([]);
+                            setTonicPurpose("");
+                            setMedications([]);
+                            setExistingConditionsText([]);
+                            setPatientInstructions("");
+                            setLoadedFormulaId(null);
+                            setSaveStatus("idle");
+                            localStorage.removeItem(TONIC_STORAGE_KEY);
+                            markUnsaved();
+                            return;
+                          }
+                          
+                          const formula = clientFormulas.find(f => f.id === formulaId);
+                          if (!formula || !formula.formula_data) return;
+                          
+                          const formulaData: SavedTonic = formula.formula_data;
+                          
+                          // Load formula into workspace
+                          setCurrentTonicId(formulaData.id || null);
+                          setTonicName(formulaData.tonicName ?? "");
+                          setBottleSize(formulaData.bottleSize ?? "");
+                          setDoseMl(formulaData.doseMl ?? "");
+                          setFrequencyPerDay(formulaData.frequencyPerDay ?? "");
+                          setWorkspaceHerbs(formulaData.workspaceHerbs ?? []);
+                          setTonicPurpose(formulaData.tonicPurpose ?? "");
+                          const meds = formulaData.medications ?? [];
+                          const conditions = formulaData.existingConditionsText ?? [];
+                          setMedications(Array.isArray(meds) ? meds : meds ? [meds] : []);
+                          setExistingConditionsText(Array.isArray(conditions) ? conditions : conditions ? [conditions] : []);
+                          setPatientInstructions(formulaData.patientInstructions ?? "");
+                          setLoadedFormulaId(formulaId);
+                          
+                          // Save to localStorage
+                          localStorage.setItem(TONIC_STORAGE_KEY, JSON.stringify(formulaData));
+                          setSaveStatus("saved");
+                          markUnsaved();
+                        }}
+                      >
+                        <option value="">Select a formula to load...</option>
+                        {clientFormulas.map((formula) => (
+                          <option key={formula.id} value={formula.id}>
+                            {formula.title || "Untitled"} - {new Date(formula.created_at).toLocaleDateString()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
-                    Tonic purpose
-                  </label>
-                  <input
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                    value={tonicPurpose}
-                    onChange={(e) => {
-                      markUnsaved();
-                      setTonicPurpose(e.target.value);
-                    }}
-                    placeholder=""
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-slate-700 font-medium">
                     Medications
                   </label>
-                  <textarea
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                    value={medications}
-                    onChange={(e) => {
-                      markUnsaved();
-                      setMedications(e.target.value);
-                    }}
-                    placeholder=""
-                  />
+                    {showMedicationInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowMedicationInput(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-700"
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowMedicationInput(true)}
+                        className="text-[10px] font-medium text-[#72B01D] hover:text-[#6AA318] hover:underline"
+                      >
+                        + Add medication
+                      </button>
+                    )}
+                  </div>
+                  {showMedicationInput ? (
+                    <div className="flex flex-wrap gap-1 py-2 min-h-[28px]">
+                      {medications.map((med, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
+                        >
+                          {med}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTags = medications.filter((_, i) => i !== index);
+                              setMedications(newTags);
+                              markUnsaved();
+                            }}
+                            className="text-slate-500 hover:text-slate-700 ml-0.5"
+                            aria-label={`Remove ${med}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                            e.preventDefault();
+                            const value = (e.target as HTMLInputElement).value.trim();
+                            if (!medications.includes(value)) {
+                              setMedications([...medications, value]);
+                              markUnsaved();
+                            }
+                            (e.target as HTMLInputElement).value = "";
+                          } else if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && medications.length > 0) {
+                            setMedications(medications.slice(0, -1));
+                            markUnsaved();
+                          }
+                        }}
+                        placeholder={medications.length === 0 ? "Type medication and press Enter..." : ""}
+                        className="flex-1 min-w-[120px] outline-none text-[11px] text-slate-900 bg-white/40 border border-dashed border-slate-300 rounded px-2 py-0.5 focus:border-[#72B01D] focus:bg-white/60 focus:outline-none placeholder:text-slate-400"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      {medications.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 py-2">
+                          {medications.map((med, index) => (
+                            <span
+                              key={index}
+                              className="inline-block px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
+                            >
+                              {med}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[12px] text-slate-400 py-2">No medications added</div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-slate-700 font-medium">
+                      Precautions
+                    </label>
+                    {showPrecautionsInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowPrecautionsInput(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-700"
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowPrecautionsInput(true)}
+                        className="text-[10px] font-medium text-[#72B01D] hover:text-[#6AA318] hover:underline"
+                      >
+                        + Add precaution
+                      </button>
+                    )}
+                  </div>
+                  {showPrecautionsInput ? (
+                    <div className="flex flex-wrap gap-1 py-2 min-h-[28px]">
+                      {precautions.map((precaution, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
+                        >
+                          {precaution}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTags = precautions.filter((_, i) => i !== index);
+                              setPrecautions(newTags);
+                              markUnsaved();
+                            }}
+                            className="text-slate-500 hover:text-slate-700 ml-0.5"
+                            aria-label={`Remove ${precaution}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                            e.preventDefault();
+                            const value = (e.target as HTMLInputElement).value.trim();
+                            if (!precautions.includes(value)) {
+                              setPrecautions([...precautions, value]);
+                              markUnsaved();
+                            }
+                            (e.target as HTMLInputElement).value = "";
+                          } else if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && precautions.length > 0) {
+                            setPrecautions(precautions.slice(0, -1));
+                            markUnsaved();
+                          }
+                        }}
+                        placeholder={precautions.length === 0 ? "Type precaution and press Enter..." : ""}
+                        className="flex-1 min-w-[120px] outline-none text-[11px] text-slate-900 bg-white/40 border border-dashed border-slate-300 rounded px-2 py-0.5 focus:border-[#72B01D] focus:bg-white/60 focus:outline-none placeholder:text-slate-400"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      {precautions.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 py-2">
+                          {precautions.map((precaution, index) => (
+                            <span
+                              key={index}
+                              className="inline-block px-2 py-0.5 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
+                            >
+                              {precaution}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[12px] text-slate-400 py-2">No precautions added</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] text-slate-700 font-medium">
                     Existing conditions
                   </label>
-                  <textarea
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                    value={existingConditionsText}
-                    onChange={(e) => {
-                      markUnsaved();
-                      setExistingConditionsText(e.target.value);
-                    }}
-                  />
+                    {showExistingConditionInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowExistingConditionInput(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-700"
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowExistingConditionInput(true)}
+                        className="text-[10px] font-medium text-[#72B01D] hover:text-[#6AA318] hover:underline"
+                      >
+                        + Add condition
+                      </button>
+                    )}
+                  </div>
+                  {showExistingConditionInput ? (
+                    <div className="flex flex-wrap gap-1 py-2 min-h-[28px]">
+                      {existingConditionsText.map((condition, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[11px] text-slate-700"
+                        >
+                          {condition}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newTags = existingConditionsText.filter((_, i) => i !== index);
+                              setExistingConditionsText(newTags);
+                              markUnsaved();
+                            }}
+                            className="text-slate-500 hover:text-slate-700 ml-0.5"
+                            aria-label={`Remove ${condition}`}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
+                            e.preventDefault();
+                            const value = (e.target as HTMLInputElement).value.trim();
+                            if (!existingConditionsText.includes(value)) {
+                              setExistingConditionsText([...existingConditionsText, value]);
+                              markUnsaved();
+                            }
+                            (e.target as HTMLInputElement).value = "";
+                          } else if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && existingConditionsText.length > 0) {
+                            setExistingConditionsText(existingConditionsText.slice(0, -1));
+                            markUnsaved();
+                          }
+                        }}
+                        placeholder={existingConditionsText.length === 0 ? "Type condition and press Enter..." : ""}
+                        className="flex-1 min-w-[120px] outline-none text-[11px] text-slate-900 bg-white/40 border border-dashed border-slate-300 rounded px-2 py-0.5 focus:border-[#72B01D] focus:bg-white/60 focus:outline-none placeholder:text-slate-400"
+                        autoFocus
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      {existingConditionsText.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 py-2">
+                          {existingConditionsText.map((condition, index) => (
+                            <span
+                              key={index}
+                              className="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-[11px] text-slate-700"
+                            >
+                              {condition}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-[12px] text-slate-400 py-2">No conditions added</div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* TONIC DETAILS */}
-            <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-4 space-y-4 shadow-lg shadow-black/5 h-[420px]">
+            <div className="relative rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-4 space-y-4 shadow-lg shadow-black/5 h-[420px]">
               <div className="flex items-center justify-between">
                 <h2 className="text-[13px] font-semibold tracking-wide text-[#4B543B]">
                   Tonic details
@@ -1233,6 +2027,21 @@ if (isLockedSelection) {
                     onChange={(e) => {
                       markUnsaved();
                       setTonicName(e.target.value);
+                    }}
+                    placeholder=""
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    Tonic purpose
+                  </label>
+                  <input
+                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    value={tonicPurpose}
+                    onChange={(e) => {
+                      markUnsaved();
+                      setTonicPurpose(e.target.value);
                     }}
                     placeholder=""
                   />
@@ -1302,7 +2111,7 @@ if (isLockedSelection) {
                     Notes
                   </label>
                   <textarea
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] min-h-[60px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] min-h-[45px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     value={patientInstructions}
                     onChange={(e) => {
                       markUnsaved();
@@ -1313,69 +2122,62 @@ if (isLockedSelection) {
                 </div>
               </div>
 
-              <div className="pt-3 flex justify-end">
-                <div className="flex flex-col items-end gap-2">
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  {/* Reset button - Destructive, lowest emphasis */}
                   <button
                     type="button"
-                    onClick={handleCreateOrEditTonic}
-                    className="px-3 py-1 text-[10px] font-semibold rounded-full border border-[#72B01D80] bg-[#7dc95e] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                    onClick={handleResetTonic}
+                    disabled={
+                      !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
+                    }
+                    className="px-3 py-1 text-[10px] font-medium rounded-md border border-slate-300 bg-white text-slate-600 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
                   >
-                    {currentTonicId ? "Edit bottle" : "Create"}
+                    Reset form
                   </button>
 
-                  <div className="flex gap-2 flex-wrap justify-end">
-                    <button
-                      type="button"
-                      onClick={handleExportTonic}
-                      disabled={workspaceHerbs.length === 0}
-                      className="px-3 py-1 text-[10px] font-semibold rounded-full border border-slate-200 bg-white text-slate-800 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
-                    >
-                      Export
-                    </button>
-
+                  {/* Save button - Secondary, de-emphasized, centered */}
                     <button
                       type="button"
                       onClick={handleSaveTonic}
                       disabled={workspaceHerbs.length === 0}
-                      className="px-3 py-1 text-[10px] font-semibold rounded-full border border-[#2E332B33] bg-white text-[#2E332B] tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
+                    className="px-3 py-1 text-[10px] font-medium rounded-md border border-slate-300 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
                     >
                       Save
                     </button>
 
+                  {/* Create button - Primary, most prominent */}
                     <button
                       type="button"
-                      onClick={handleResetTonic}
-                      disabled={
-                        !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
-                      }
-                      className="px-3 py-1 text-[10px] font-semibold rounded-full border border-slate-200 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
-                    >
-                      Reset
+                    onClick={handleCreateOrEditTonic}
+                    className="px-3 py-1 text-[10px] font-semibold rounded-md border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                  >
+                    {currentTonicId ? "Edit bottle" : "Create tonic"}
                     </button>
-                  </div>
-
-                  <div className="mt-1 text-[10px]">
+                </div>
+                
+                {/* Status indicator - below buttons, right-aligned */}
+                <div className="flex justify-end mt-2">
                     {saveStatus === "saved" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-[#E4F4D9] text-[#355925] border border-[#9ACC77]">
+                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-[#E4F4D9] text-[#355925] border border-[#9ACC77] text-[8px]">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#3B7C1E]" />
                         All changes saved
                       </span>
                     )}
 
                     {saveStatus === "error" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-red-50 text-red-700 border border-red-200 text-[8px]">
                         <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
                         Save failed – check browser storage
                       </span>
                     )}
 
                     {saveStatus === "idle" && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[8px]">
                         <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
                         Unsaved changes
                       </span>
                     )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -1444,6 +2246,19 @@ if (isLockedSelection) {
                   )}
                 </div>
               </div>
+
+              {/* Export action - only available after tonic is created */}
+              {currentTonicId && workspaceHerbs.length > 0 && (
+                <div className="mt-2 pt-3 border-t border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={handleExportTonic}
+                    className="w-full px-3 py-2 text-[11px] font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    Export formula
+                  </button>
+                </div>
+              )}
 
               <div className="mt-2 border-t border-slate-200/80 pt-3">
                 <h3 className="text-[10px] font-semibold text-slate-800 mb-2 uppercase tracking-[0.16em]">
@@ -1559,17 +2374,17 @@ if (isLockedSelection) {
         {/* FULL SCREEN HERB TABLE OVERLAY */}
         {isFullScreenTable && (
           <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/70 backdrop-blur-sm">
-            <div className="flex items-center px-6 py-2 bg-white/95 border-b border-slate-200">
+            <div className="grid grid-cols-3 items-center px-6 py-2 bg-white/95 border-b border-slate-200">
               <div className="flex flex-col justify-center">
                 <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
                   Herbal data
                 </span>
-                <span className="text-sm font-semibold text-slate-900">
+                <span className="text-sm font-semibold text-slate-900 truncate">
                   {selectedCondition?.name || "Select a health concern"}
                 </span>
               </div>
 
-              <div className="flex-1 flex justify-center">
+              <div className="flex justify-center">
                 <button
                   type="button"
                   onClick={() => {
@@ -1582,7 +2397,7 @@ if (isLockedSelection) {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsExpandedView(false)}
@@ -1765,7 +2580,7 @@ if (isLockedSelection) {
               <div className="mt-5 flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={() => router.push("/pricing")}
+                  onClick={() => router.push("/app/upgrade")}
                   className="w-full px-4 py-2 text-[12px] rounded-xl bg-[#72B01D] hover:bg-[#6AA318] text-white font-semibold border border-[#72B01D]"
                 >
                   Upgrade to Pro
@@ -2248,7 +3063,303 @@ if (isLockedSelection) {
             </div>
           </div>
         )}
-      </main>
+
+        {/* Create Client Modal */}
+        {createClientModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto">
+            <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 text-slate-900">Create New Client</h3>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    placeholder="Client full name"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={newClientEmail}
+                      onChange={(e) => setNewClientEmail(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      placeholder="client@example.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={newClientPhone}
+                      onChange={(e) => setNewClientPhone(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      placeholder="(000) 000-0000"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={newClientDob}
+                    onChange={(e) => setNewClientDob(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Tags (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={newClientTags}
+                    onChange={(e) => setNewClientTags(e.target.value)}
+                    placeholder="e.g., VIP, Follow-up, Chronic"
+                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Medications
+                  </label>
+                  <TagInput
+                    tags={newClientMedications}
+                    onChange={setNewClientMedications}
+                    placeholder="Type medication and press Enter..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Existing Conditions
+                  </label>
+                  <TagInput
+                    tags={newClientExistingConditions}
+                    onChange={setNewClientExistingConditions}
+                    placeholder="Type condition and press Enter..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                    Precautions
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.pregnancy}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, pregnancy: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Pregnant</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.lactation}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, lactation: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Lactation</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.anticoagulants}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, anticoagulants: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Anticoagulants</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.pediatric}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, pediatric: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Pediatric</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.kidneyDisease}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, kidneyDisease: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Kidney Disease</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={newClientFlags.liverDisease}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, liverDisease: e.target.checked })
+                        }
+                        className="rounded border-slate-300"
+                      />
+                      <span className="text-[12px] text-slate-700">Liver Disease</span>
+                    </label>
+                    <div>
+                      <input
+                        type="text"
+                        value={newClientFlags.allergies}
+                        onChange={(e) =>
+                          setNewClientFlags({ ...newClientFlags, allergies: e.target.value })
+                        }
+                        placeholder="Allergies details"
+                        className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateClientModalOpen(false);
+                    setNewClientName("");
+                    setNewClientEmail("");
+                    setNewClientPhone("");
+                    setNewClientDob("");
+                    setNewClientTags("");
+                      setNewClientFlags({
+                        pregnancy: false,
+                        lactation: false,
+                        anticoagulants: false,
+                        pediatric: false,
+                        kidneyDisease: false,
+                        liverDisease: false,
+                        allergies: "",
+                      });
+                      setNewClientMedications([]);
+                      setNewClientExistingConditions([]);
+                  }}
+                  className="px-4 py-2 text-[12px] rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!newClientName.trim()) return;
+
+                    setCreatingClient(true);
+                    try {
+                      const { data: userRes, error: userError } = await supabase.auth.getUser();
+                      if (userError || !userRes.user) {
+                        throw new Error("Not authenticated. Please sign in again.");
+                      }
+
+                      const tagsArray = newClientTags
+                        .split(",")
+                        .map((t) => t.trim())
+                        .filter((t) => t.length > 0);
+
+                      const { data, error } = await supabase
+                        .from("clients")
+                        .insert({
+                          user_id: userRes.user.id,
+                          full_name: newClientName.trim(),
+                          email: newClientEmail.trim() || null,
+                          phone: newClientPhone.trim() || null,
+                          dob: newClientDob || null,
+                          tags: tagsArray.length > 0 ? tagsArray : null,
+                          flags: {
+                            ...newClientFlags,
+                            medications: newClientMedications,
+                            existingConditions: newClientExistingConditions,
+                          },
+                        })
+                        .select()
+                        .single();
+
+                      if (error) {
+                        console.error("Supabase error creating client:", error);
+                        
+                        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+                          alert("The clients table does not exist yet. Please create it in your database first. See the SQL in the code comments.");
+                          return;
+                        }
+                        
+                        throw new Error(error.message || `Failed to create client: ${error.code || "Unknown error"}`);
+                      }
+
+                      if (!data) {
+                        throw new Error("Client created but no data returned.");
+                      }
+
+                      // Update clients list
+                      setClients((prev) => [...prev, data]);
+                      setSelectedClientId(data.id);
+                      setCreateClientModalOpen(false);
+                      setNewClientName("");
+                      setNewClientEmail("");
+                      setNewClientPhone("");
+                      setNewClientDob("");
+                      setNewClientTags("");
+                      setNewClientFlags({
+                        pregnancy: false,
+                        lactation: false,
+                        anticoagulants: false,
+                        pediatric: false,
+                        kidneyDisease: false,
+                        liverDisease: false,
+                        allergies: "",
+                      });
+                      setNewClientMedications([]);
+                      setNewClientExistingConditions([]);
+                      markUnsaved();
+                    } catch (e: any) {
+                      console.error("Failed to create client:", e);
+                      const errorMessage = e?.message || "Failed to create client. Please try again.";
+                      alert(errorMessage);
+                    } finally {
+                      setCreatingClient(false);
+                    }
+                  }}
+                  disabled={!newClientName.trim() || creatingClient}
+                  className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D] disabled:opacity-50"
+                >
+                  {creatingClient ? "Creating..." : "Create Client"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </MainContent>
     </>
   );
 }

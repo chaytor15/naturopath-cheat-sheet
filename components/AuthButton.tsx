@@ -27,7 +27,6 @@ export default function AuthButton() {
   const signOut = async () => {
     setBusy(true);
 
-    // 1) sign out from supabase (local session)
     const { error } = await supabase.auth.signOut();
     setBusy(false);
 
@@ -36,33 +35,28 @@ export default function AuthButton() {
       return;
     }
 
-    // 2) remove any leftover supabase auth tokens in storage
     try {
       for (const k of Object.keys(localStorage)) {
-        if (k.startsWith("sb-") && k.endsWith("-auth-token")) {
-          localStorage.removeItem(k);
-        }
+        if (k.startsWith("sb-") && k.endsWith("-auth-token")) localStorage.removeItem(k);
       }
       for (const k of Object.keys(sessionStorage)) {
-        if (k.startsWith("sb-") && k.endsWith("-auth-token")) {
-          sessionStorage.removeItem(k);
-        }
+        if (k.startsWith("sb-") && k.endsWith("-auth-token")) sessionStorage.removeItem(k);
       }
     } catch {}
 
-    // 3) hard refresh routing state
     router.replace("/login");
     router.refresh();
   };
 
   if (hasSession === null) return null;
 
-  const pill =
-    "pointer-events-auto inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-300 bg-white/70 hover:bg-white text-[11px] text-slate-700 tracking-[0.08em] uppercase";
+  // ✅ Match your Create button styling
+  const greenPill =
+    "pointer-events-auto inline-flex items-center gap-2 px-3 py-1 text-[10px] font-semibold rounded-full border border-[#72B01D80] bg-[#7dc95e] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase";
 
   if (!hasSession) {
     return (
-      <a href="/login" className={pill}>
+      <a href="/login" className={greenPill}>
         Sign in
       </a>
     );
@@ -73,7 +67,7 @@ export default function AuthButton() {
       type="button"
       onClick={signOut}
       disabled={busy}
-      className={`${pill} ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+      className={`${greenPill} ${busy ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}`}
     >
       {busy ? "Signing out…" : "Sign out"}
     </button>
