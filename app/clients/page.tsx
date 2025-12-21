@@ -608,7 +608,7 @@ export default function ClientsPage() {
                         placeholder="Search by name, email, tag…"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-16 py-2 rounded-md border border-slate-200 bg-white/70 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                        className="w-full pl-10 pr-16 py-2 rounded-lg border border-slate-200 bg-white/70 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       />
                       <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[10px] text-slate-400">
                         Ctrl K
@@ -626,7 +626,7 @@ export default function ClientsPage() {
                   </span>
                 </div>
               ) : (
-              <div className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+              <div className="flex-1 overflow-y-auto stable-scroll [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
                 {loading ? (
                   <div className="px-4 py-3">
                     <p className="text-[13px] text-slate-600">Loading...</p>
@@ -713,7 +713,7 @@ export default function ClientsPage() {
                               }
                               setIsEditingSnapshot(true);
                             }}
-                            className="px-3 py-1.5 text-[11px] font-medium rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
                           >
                             Edit Client
                           </button>
@@ -722,7 +722,7 @@ export default function ClientsPage() {
                             onClick={() => {
                               router.push(`/app?client=${selectedClient.id}`);
                             }}
-                            className="px-3 py-1.5 text-[11px] font-semibold rounded-md border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                            className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                           >
                             + New Tonic
                           </button>
@@ -913,7 +913,7 @@ export default function ClientsPage() {
 
                       {activeTab === "notes" && (
                         <div className="space-y-4">
-                          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll">
                             {notes.length === 0 ? (
                               <p className="text-[12px] text-slate-500">No notes yet.</p>
                             ) : (
@@ -938,13 +938,13 @@ export default function ClientsPage() {
                               value={newNote}
                               onChange={(e) => setNewNote(e.target.value)}
                               placeholder="Add a note..."
-                              className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] min-h-[80px]"
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] min-h-[80px]"
                             />
                             <button
                               type="button"
                               onClick={handleAddNote}
                               disabled={!newNote.trim() || addingNote}
-                              className="px-3 py-1 text-[10px] font-semibold rounded-full border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase disabled:opacity-50"
+                              className="px-3 py-1 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase disabled:opacity-50"
                             >
                               {addingNote ? "Adding..." : "Add Note"}
                             </button>
@@ -954,7 +954,7 @@ export default function ClientsPage() {
 
                       {activeTab === "formulas" && (
                         <div className="space-y-4">
-                          <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll">
                             {formulas.length === 0 ? (
                               <p className="text-[12px] text-slate-500">No formulas yet.</p>
                             ) : (
@@ -1059,7 +1059,7 @@ export default function ClientsPage() {
                                       setHasUnsavedChanges(true);
                                       setSaveStatus("unsaved");
                                     }}
-                                    className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[14px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                                   />
                                 </div>
                                 <div>
@@ -1074,7 +1074,7 @@ export default function ClientsPage() {
                                       setHasUnsavedChanges(true);
                                       setSaveStatus("unsaved");
                                     }}
-                                    className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[14px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                                   />
                                 </div>
                               </div>
@@ -1093,7 +1093,7 @@ export default function ClientsPage() {
                                       setHasUnsavedChanges(true);
                                       setSaveStatus("unsaved");
                                     }}
-                                    className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[14px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                                   />
                                 </div>
                                 <div>
@@ -1108,7 +1108,7 @@ export default function ClientsPage() {
                                       setHasUnsavedChanges(true);
                                       setSaveStatus("unsaved");
                                     }}
-                                    className="w-full bg-white border border-slate-200 rounded-md px-3 py-2 text-[14px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                                   />
                                 </div>
                               </div>
@@ -1297,7 +1297,7 @@ export default function ClientsPage() {
                                     setHasUnsavedChanges(false);
                                     setSaveStatus("saved");
                                   }}
-                                  className="px-3 py-1.5 text-[11px] font-medium rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+                                  className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
                                 >
                                   Cancel
                                 </button>
@@ -1308,7 +1308,7 @@ export default function ClientsPage() {
                                     setIsEditingSnapshot(false);
                                   }}
                                   disabled={!hasUnsavedChanges || saving}
-                                  className="px-3 py-1.5 text-[11px] font-medium rounded-md border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white disabled:opacity-50"
+                                  className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white disabled:opacity-50"
                                 >
                                   {saving ? "Saving..." : "Save"}
                                 </button>
@@ -1460,7 +1460,7 @@ export default function ClientsPage() {
           {/* Create Client Modal */}
         {createModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto">
-            <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto stable-scroll">
               <h3 className="text-lg font-semibold mb-4 text-slate-900">Create New Client</h3>
 
               <div className="space-y-3">
@@ -1473,7 +1473,7 @@ export default function ClientsPage() {
                       type="text"
                       value={newClientFirstName}
                       onChange={(e) => setNewClientFirstName(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="First name"
                       autoFocus
                     />
@@ -1486,7 +1486,7 @@ export default function ClientsPage() {
                       type="text"
                       value={newClientLastName}
                       onChange={(e) => setNewClientLastName(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="Last name"
                     />
                   </div>
@@ -1501,7 +1501,7 @@ export default function ClientsPage() {
                       type="email"
                       value={newClientEmail}
                       onChange={(e) => setNewClientEmail(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="client@example.com"
                     />
                   </div>
@@ -1513,7 +1513,7 @@ export default function ClientsPage() {
                       type="tel"
                       value={newClientPhone}
                       onChange={(e) => setNewClientPhone(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="(000) 000-0000"
                     />
                   </div>
@@ -1660,7 +1660,7 @@ export default function ClientsPage() {
                     setNewClientMedications([]);
                     setNewClientExistingConditions([]);
                   }}
-                  className="px-4 py-2 text-[12px] rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                  className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
                 >
                   Cancel
                 </button>
@@ -1727,7 +1727,7 @@ export default function ClientsPage() {
                     }
                   }}
                   disabled={!newClientFirstName.trim() || creating}
-                  className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D] disabled:opacity-50"
+                  className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-lg font-semibold text-white border border-[#72B01D] disabled:opacity-50"
                 >
                   {creating ? "Creating..." : "Create Client"}
                 </button>

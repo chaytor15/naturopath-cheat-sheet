@@ -188,7 +188,7 @@ export default function AppHeader() {
             pathname !== "/login" && pathname !== "/signup" && pathname !== "/forgot" && (
               <Link
                 href="/login"
-                className="px-3 py-1 text-[10px] font-semibold rounded-full border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                className="px-3 py-2 text-[11px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
               >
                 Sign in
               </Link>

@@ -1527,7 +1527,7 @@ if (isLockedSelection) {
                   <div className="relative">
                   <input
                       type="text"
-                      className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder={!selectedClientId ? "Select a client..." : ""}
                       value={selectedClientId && !clientSearchQuery ? (clients.find(c => c.id === selectedClientId)?.full_name || clientName || "") : clientSearchQuery}
                     onChange={(e) => {
@@ -1555,7 +1555,7 @@ if (isLockedSelection) {
                       }}
                     />
                     {isClientDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         <div
                           className="px-3 py-2 text-[13px] text-slate-700 hover:bg-slate-50 cursor-pointer"
                           onClick={() => {
@@ -1684,7 +1684,7 @@ if (isLockedSelection) {
                         )}
                       </div>
                       <select
-                        className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                        className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                         value={loadedFormulaId || ""}
                         onChange={async (e) => {
                           const formulaId = e.target.value;
@@ -2131,7 +2131,7 @@ if (isLockedSelection) {
                     disabled={
                       !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
                     }
-                    className="px-3 py-1 text-[10px] font-medium rounded-md border border-slate-300 bg-white text-slate-600 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
+                    className="px-3 py-1 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-600 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
                   >
                     Reset form
                   </button>
@@ -2141,7 +2141,7 @@ if (isLockedSelection) {
                       type="button"
                       onClick={handleSaveTonic}
                       disabled={workspaceHerbs.length === 0}
-                    className="px-3 py-1 text-[10px] font-medium rounded-md border border-slate-300 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
+                    className="px-3 py-1 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 tracking-[0.08em] uppercase disabled:opacity-40 hover:bg-slate-50"
                     >
                       Save
                     </button>
@@ -2150,7 +2150,7 @@ if (isLockedSelection) {
                     <button
                       type="button"
                     onClick={handleCreateOrEditTonic}
-                    className="px-3 py-1 text-[10px] font-semibold rounded-md border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                    className="px-3 py-1 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
                   >
                     {currentTonicId ? "Edit bottle" : "Create tonic"}
                     </button>
@@ -2205,7 +2205,7 @@ if (isLockedSelection) {
                         }`}
                         style={{ height: `${bottleFillPercent}%` }}
                       />
-                      <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-white/90 border border-slate-300 rounded-md flex items-center justify-center px-1">
+                      <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-7 bg-white/90 border border-slate-300 rounded-lg flex items-center justify-center px-1">
                         <span className="text-[9px] text-slate-700 truncate text-center">
                           {bottleVolumeMl ? `${bottleVolumeMl} mL` : "Bottle mL"}
                         </span>
@@ -2253,7 +2253,7 @@ if (isLockedSelection) {
                   <button
                     type="button"
                     onClick={handleExportTonic}
-                    className="w-full px-3 py-2 text-[11px] font-medium rounded-md border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full px-3 py-2 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
                   >
                     Export formula
                   </button>
@@ -2441,7 +2441,7 @@ if (isLockedSelection) {
                       Body system
                     </label>
                     <select
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[12px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       value={selectedBodySystem}
                       onChange={(e) => setSelectedBodySystem(e.target.value)}
                     >
@@ -2581,7 +2581,7 @@ if (isLockedSelection) {
                 <button
                   type="button"
                   onClick={() => router.push("/app/upgrade")}
-                  className="w-full px-4 py-2 text-[12px] rounded-xl bg-[#72B01D] hover:bg-[#6AA318] text-white font-semibold border border-[#72B01D]"
+                  className="w-full px-4 py-2 text-[12px] rounded-lg bg-[#72B01D] hover:bg-[#6AA318] text-white font-semibold border border-[#72B01D]"
                 >
                   Upgrade to Pro
                 </button>
@@ -2593,7 +2593,7 @@ if (isLockedSelection) {
                       setUpgradeModalOpen(false);
                       setLockedChoice(null);
                     }}
-                    className="px-4 py-2 text-[12px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                    className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
                   >
                     Not now
                   </button>
@@ -2721,7 +2721,7 @@ if (isLockedSelection) {
                 </div>
               </div>
 
-              <div className="p-4 overflow-y-auto space-y-4">
+              <div className="p-4 overflow-y-auto stable-scroll space-y-4">
                 <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
                   <div className="px-4 py-3 border-b border-slate-200 bg-white/95">
                     <h3 className="text-[10px] font-semibold text-slate-800 uppercase tracking-[0.16em]">
@@ -2834,7 +2834,7 @@ if (isLockedSelection) {
                   <button
                     type="button"
                     onClick={() => setIsWorkspaceDrawerOpen(false)}
-                    className="px-4 py-2 text-[12px] rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                    className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
                   >
                     Done
                   </button>
@@ -2877,7 +2877,7 @@ if (isLockedSelection) {
                 </button>
               </div>
 
-              <div className="px-6 py-4 space-y-4 overflow-y-auto text-sm text-slate-800">
+              <div className="px-6 py-4 space-y-4 overflow-y-auto stable-scroll text-sm text-slate-800">
                 {selectedHerb.actions && (
                   <div>
                     <h4 className="text-[#72B01D] text-[11px] mb-1 tracking-[0.16em] uppercase">
@@ -2978,7 +2978,7 @@ if (isLockedSelection) {
 })()}
                 <input
                   type="number"
-                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] appearance-none text-[13px]"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] appearance-none text-[13px]"
                   placeholder="e.g. 5"
                   value={mlModalValue}
                   onChange={(e) => setMlModalValue(e.target.value)}
@@ -3006,7 +3006,7 @@ if (isLockedSelection) {
       <button
         type="button"
         onClick={() => setMlModalValue(String(Math.round(quickFillTargetMl)))}
-        className="px-3 py-2 text-[12px] rounded-md border border-[#72B01D33] bg-[#F0F7E8] hover:bg-[#E3F0D7] text-slate-800"
+        className="px-3 py-2 text-[12px] rounded-lg border border-[#72B01D33] bg-[#F0F7E8] hover:bg-[#E3F0D7] text-slate-800"
       >
         Fill bottle ({Math.round(quickFillTargetMl)} mL)
       </button>
@@ -3020,13 +3020,13 @@ if (isLockedSelection) {
     <button
       type="button"
       onClick={handleCloseMlModal}
-      className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 text-slate-800"
+      className="px-4 py-2 text-[12px] bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 text-slate-800"
     >
       Cancel
     </button>
     <button
       type="submit"
-      className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D]"
+      className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-lg font-semibold text-white border border-[#72B01D]"
     >
       Confirm
     </button>
@@ -3055,7 +3055,7 @@ if (isLockedSelection) {
                 <button
                   type="button"
                   onClick={() => setBottleConfigErrorOpen(false)}
-                  className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-md font-semibold text-white border border-red-500/80"
+                  className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded-lg font-semibold text-white border border-red-500/80"
                 >
                   Got it
                 </button>
@@ -3067,7 +3067,7 @@ if (isLockedSelection) {
         {/* Create Client Modal */}
         {createClientModalOpen && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto">
-            <div className="w-full max-w-2xl bg-white rounded-xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+            <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto stable-scroll">
               <h3 className="text-lg font-semibold mb-4 text-slate-900">Create New Client</h3>
 
               <div className="space-y-3">
@@ -3079,7 +3079,7 @@ if (isLockedSelection) {
                     type="text"
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     placeholder="Client full name"
                     autoFocus
                   />
@@ -3094,7 +3094,7 @@ if (isLockedSelection) {
                       type="email"
                       value={newClientEmail}
                       onChange={(e) => setNewClientEmail(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="client@example.com"
                     />
                   </div>
@@ -3106,7 +3106,7 @@ if (isLockedSelection) {
                       type="tel"
                       value={newClientPhone}
                       onChange={(e) => setNewClientPhone(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="(000) 000-0000"
                     />
                   </div>
@@ -3120,7 +3120,7 @@ if (isLockedSelection) {
                     type="date"
                     value={newClientDob}
                     onChange={(e) => setNewClientDob(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                   />
                 </div>
 
@@ -3133,7 +3133,7 @@ if (isLockedSelection) {
                     value={newClientTags}
                     onChange={(e) => setNewClientTags(e.target.value)}
                     placeholder="e.g., VIP, Follow-up, Chronic"
-                    className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                   />
                 </div>
 
@@ -3238,7 +3238,7 @@ if (isLockedSelection) {
                           setNewClientFlags({ ...newClientFlags, allergies: e.target.value })
                         }
                         placeholder="Allergies details"
-                        className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       />
                     </div>
                   </div>
@@ -3267,7 +3267,7 @@ if (isLockedSelection) {
                       setNewClientMedications([]);
                       setNewClientExistingConditions([]);
                   }}
-                  className="px-4 py-2 text-[12px] rounded-md border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
+                  className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
                 >
                   Cancel
                 </button>
@@ -3351,7 +3351,7 @@ if (isLockedSelection) {
                     }
                   }}
                   disabled={!newClientName.trim() || creatingClient}
-                  className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-md font-semibold text-white border border-[#72B01D] disabled:opacity-50"
+                  className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-lg font-semibold text-white border border-[#72B01D] disabled:opacity-50"
                 >
                   {creatingClient ? "Creating..." : "Create Client"}
                 </button>
