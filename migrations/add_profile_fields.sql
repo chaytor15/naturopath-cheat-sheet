@@ -12,3 +12,8 @@ ADD COLUMN IF NOT EXISTS profile_picture text;
 CREATE INDEX IF NOT EXISTS idx_profiles_company_name ON profiles(company_name);
 
 
+
+
+
+
+

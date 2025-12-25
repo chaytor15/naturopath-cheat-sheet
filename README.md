@@ -16,6 +16,31 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Live transcription (Deepgram) — beta
+
+This repo includes a **local WebSocket proxy** (`server/deepgram-ws-proxy.js`) that powers live-ish transcription on the **Consultations** page.
+
+### Setup
+
+1. Create `.env.local` in the project root (if you don’t already have one).
+2. Add your Deepgram key:
+
+```bash
+DEEPGRAM_API_KEY=your_deepgram_api_key
+# optional
+DEEPGRAM_WS_PORT=3001
+```
+
+3. Run:
+
+```bash
+npm run dev
+```
+
+Notes:
+- `npm run dev` runs **both** `next dev` and the proxy server via `concurrently`.
+- The proxy listens on `ws://localhost:3001` by default.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

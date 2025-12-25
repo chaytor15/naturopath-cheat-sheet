@@ -35,17 +35,17 @@ export default function TagInput({
   };
 
   return (
-    <div className={`flex flex-wrap gap-2 p-2 border border-slate-200 rounded-md bg-white min-h-[60px] focus-within:ring-1 focus-within:ring-[#72B01D66] focus-within:border-[#72B01D] ${className}`}>
+    <div className={`flex flex-wrap gap-1.5 p-1.5 border border-slate-300 rounded-lg bg-white min-h-[38px] focus-within:ring-1 focus-within:ring-[#72B01D66] focus-within:border-[#72B01D] ${className}`}>
       {tags.map((tag, index) => (
         <span
           key={index}
-          className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-100 text-[12px] text-slate-700"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-slate-100 text-[11px] text-slate-700"
         >
           {tag}
           <button
             type="button"
             onClick={() => removeTag(index)}
-            className="text-slate-500 hover:text-slate-700 ml-1"
+            className="text-slate-500 hover:text-slate-700 ml-0.5 text-[12px] leading-none"
             aria-label={`Remove ${tag}`}
           >
             ×
@@ -58,11 +58,12 @@ export default function TagInput({
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={tags.length === 0 ? placeholder : ""}
-        className="flex-1 min-w-[120px] outline-none text-[13px] text-slate-900 bg-transparent"
+        className="flex-1 min-w-[100px] outline-none text-[11px] text-slate-900 bg-transparent"
       />
     </div>
   );
 }
+
 
 
 

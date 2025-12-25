@@ -289,11 +289,11 @@ export default function ProfilePage() {
             <h1 className="text-3xl font-semibold text-[#4B543B]">Profile</h1>
 
             <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-6 shadow-lg shadow-black/5">
-              {loading ? (
-                <p className="opacity-80">Loading…</p>
-              ) : err ? (
-                <p className="text-red-400">{err}</p>
-              ) : profile ? (
+            {loading ? (
+              <p className="opacity-80">Loading…</p>
+            ) : err ? (
+              <p className="text-red-400">{err}</p>
+            ) : profile ? (
                 <div className="space-y-6">
                   {/* Profile Picture - Always Available */}
                   <div>
@@ -370,56 +370,56 @@ export default function ProfilePage() {
                     {isEditing ? (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                          <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                             Company Name
                           </label>
                           <input
                             type="text"
                             value={editCompanyName}
                             onChange={(e) => setEditCompanyName(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                             placeholder="Enter your company name"
                           />
                         </div>
 
-                        <div>
-                          <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                <div>
+                          <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                             Full Name
                           </label>
                           <input
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                             placeholder="Enter your full name"
                           />
-                        </div>
+                </div>
 
-                        <div>
-                          <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                <div>
+                          <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                             Email
                           </label>
                           <input
                             type="email"
                             value={editEmail}
                             onChange={(e) => setEditEmail(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                             placeholder="Enter your email"
                           />
                           <p className="mt-1 text-[10px] text-slate-500">
                             Changing your email will require verification
                           </p>
-                        </div>
+                </div>
 
-                        <div>
-                          <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                <div>
+                          <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                             Phone Number
                           </label>
                           <input
                             type="tel"
                             value={editPhone}
                             onChange={(e) => setEditPhone(e.target.value)}
-                            className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                             placeholder="Enter your phone number"
                           />
                         </div>
@@ -507,25 +507,25 @@ export default function ProfilePage() {
                     <div className="space-y-4">
                       <div>
                         <div className="opacity-70 text-[11px] mb-1">Plan</div>
-                        <div className="inline-flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2">
                           <span className="rounded-full border border-white/20 px-3 py-1 text-[11px] font-medium">
                             {profile.plan === "paid" ? "Paid" : profile.plan === "lifetime" ? "Lifetime" : "Free"}
-                          </span>
-                          {profile.plan === "free" && (
+                    </span>
+                    {profile.plan === "free" && (
                             <span className="opacity-70 text-[11px]">
-                              Free access: Digestion + Liver conditions only
-                            </span>
-                          )}
+                        Free access: Digestion + Liver conditions only
+                      </span>
+                    )}
                           {(profile.plan === "paid" || profile.plan === "lifetime") && (
                             <span className="opacity-70 text-[11px]">
                               Full access to all conditions and features
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-                      {profile.trial_ends_at && (
-                        <div>
+                {profile.trial_ends_at && (
+                  <div>
                           <div className="opacity-70 text-[11px] mb-1">Trial ends</div>
                           <div className="text-[13px]">
                             {new Date(profile.trial_ends_at).toLocaleString()}
@@ -541,16 +541,16 @@ export default function ProfilePage() {
                           >
                             Upgrade to Paid
                           </Link>
-                        </div>
-                      )}
+                  </div>
+                )}
                     </div>
                   </div>
-                </div>
-              ) : (
-                <p className="opacity-80">No profile found.</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="opacity-80">No profile found.</p>
+            )}
           </div>
+        </div>
         </div>
       </MainContent>
     </>

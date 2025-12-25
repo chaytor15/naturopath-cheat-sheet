@@ -21,3 +21,8 @@ ALTER COLUMN full_name DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_clients_first_name ON clients(first_name);
 
 
+
+
+
+
+

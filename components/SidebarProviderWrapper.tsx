@@ -1,6 +1,7 @@
 "use client";
 
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { RightSidebarProvider } from "@/contexts/RightSidebarContext";
 import Sidebar from "@/components/Sidebar";
 
 export default function SidebarProviderWrapper({
@@ -10,8 +11,10 @@ export default function SidebarProviderWrapper({
 }) {
   return (
     <SidebarProvider>
-      <Sidebar />
-      {children}
+      <RightSidebarProvider>
+        <Sidebar />
+        {children}
+      </RightSidebarProvider>
     </SidebarProvider>
   );
 }

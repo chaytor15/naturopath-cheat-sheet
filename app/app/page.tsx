@@ -70,6 +70,30 @@ type PendingLockedCondition = {
   returnTo?: string;
 };
 
+// Countries list for dropdown
+const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria",
+  "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan",
+  "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia",
+  "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+  "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt",
+  "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon",
+  "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+  "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+  "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+  "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", "Madagascar",
+  "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+  "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal",
+  "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway", "Oman", "Pakistan",
+  "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar",
+  "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", "Saudi Arabia",
+  "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa",
+  "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria", "Taiwan",
+  "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan",
+  "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City",
+  "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+].sort();
+
 type Client = {
   id: string;
   full_name: string;
@@ -206,11 +230,11 @@ export default function HomePage() {
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
   const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
+  const [newClientFirstName, setNewClientFirstName] = useState("");
+  const [newClientLastName, setNewClientLastName] = useState("");
   const [newClientEmail, setNewClientEmail] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientDob, setNewClientDob] = useState("");
-  const [newClientTags, setNewClientTags] = useState("");
   const [newClientFlags, setNewClientFlags] = useState({
     pregnancy: false,
     lactation: false,
@@ -218,11 +242,34 @@ export default function HomePage() {
     pediatric: false,
     kidneyDisease: false,
     liverDisease: false,
-    allergies: "",
   });
   const [newClientMedications, setNewClientMedications] = useState<string[]>([]);
   const [newClientExistingConditions, setNewClientExistingConditions] = useState<string[]>([]);
+  const [newClientOtherPrecautions, setNewClientOtherPrecautions] = useState<string[]>([]);
+  
+  // Address fields state
+  const [showAddressFields, setShowAddressFields] = useState(false);
+  const [newClientStreet1, setNewClientStreet1] = useState("");
+  const [newClientStreet2, setNewClientStreet2] = useState("");
+  const [newClientSuburb, setNewClientSuburb] = useState("");
+  const [newClientState, setNewClientState] = useState("");
+  const [newClientPostcode, setNewClientPostcode] = useState("");
+  const [newClientCountry, setNewClientCountry] = useState("");
   const [creatingClient, setCreatingClient] = useState(false);
+  
+  // ESC key handler for create client modal
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && createClientModalOpen) {
+        setCreateClientModalOpen(false);
+      }
+    };
+    if (createClientModalOpen) {
+      window.addEventListener("keydown", handleEsc);
+      return () => window.removeEventListener("keydown", handleEsc);
+    }
+  }, [createClientModalOpen]);
+  
   const [tonicPurpose, setTonicPurpose] = useState("");
   const [medications, setMedications] = useState<string[]>([]);
   const [existingConditionsText, setExistingConditionsText] = useState<string[]>([]);
@@ -1464,7 +1511,7 @@ if (isLockedSelection) {
                   <button
                     type="button"
                     onClick={() => handleRemoveHerbFromTable(row.herbId)}
-                    className="text-[11px] px-2 py-1 rounded-full border border-slate-300 bg-white/80 hover:border-[#72b01d80] inline-flex items-center gap-1 text-slate-800"
+                    className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 inline-flex items-center gap-1 text-slate-700 font-medium"
                   >
                     Remove
                     <span
@@ -1478,7 +1525,7 @@ if (isLockedSelection) {
                   <button
                     type="button"
                     onClick={() => handleAddHerbToWorkspace(row)}
-                    className="text-[10px] px-3 py-1 rounded-full border border-[#72b01d80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                    className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                   >
                     + Add
                   </button>
@@ -1513,7 +1560,7 @@ if (isLockedSelection) {
               <div className="grid gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[10px] text-slate-700 font-medium">
+                    <label className="block text-[12px] text-slate-700 font-medium">
                       Client
                   </label>
                     <button
@@ -1527,7 +1574,7 @@ if (isLockedSelection) {
                   <div className="relative">
                   <input
                       type="text"
-                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder={!selectedClientId ? "Select a client..." : ""}
                       value={selectedClientId && !clientSearchQuery ? (clients.find(c => c.id === selectedClientId)?.full_name || clientName || "") : clientSearchQuery}
                     onChange={(e) => {
@@ -1557,7 +1604,7 @@ if (isLockedSelection) {
                     {isClientDropdownOpen && (
                       <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         <div
-                          className="px-3 py-2 text-[13px] text-slate-700 hover:bg-slate-50 cursor-pointer"
+                          className="px-3 py-2 text-[11px] text-slate-700 hover:bg-slate-50 cursor-pointer"
                           onClick={() => {
                             markUnsaved();
                             setSelectedClientId("");
@@ -1594,7 +1641,7 @@ if (isLockedSelection) {
                           
                           if (filteredClients.length === 0) {
                             return (
-                              <div className="px-3 py-2 text-[13px] text-slate-500">
+                              <div className="px-3 py-2 text-[11px] text-slate-500">
                                 No clients found
                               </div>
                             );
@@ -1603,7 +1650,7 @@ if (isLockedSelection) {
                           return filteredClients.map((client) => (
                             <div
                               key={client.id}
-                              className={`px-3 py-2 text-[13px] cursor-pointer ${
+                              className={`px-3 py-2 text-[11px] cursor-pointer ${
                                 selectedClientId === client.id
                                   ? "bg-[#72B01D] text-white"
                                   : "text-slate-900 hover:bg-slate-50"
@@ -1653,7 +1700,7 @@ if (isLockedSelection) {
                   {selectedClientId && clientFormulas.length > 0 && (
                     <div className="mt-2">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[10px] text-slate-700 font-medium">
+                        <label className="block text-[12px] text-slate-700 font-medium">
                           Load Formula
                         </label>
                         {loadedFormulaId && (
@@ -1684,7 +1731,7 @@ if (isLockedSelection) {
                         )}
                       </div>
                       <select
-                        className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                        className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                         value={loadedFormulaId || ""}
                         onChange={async (e) => {
                           const formulaId = e.target.value;
@@ -1747,7 +1794,7 @@ if (isLockedSelection) {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[10px] text-slate-700 font-medium">
+                    <label className="block text-[12px] text-slate-700 font-medium">
                     Medications
                   </label>
                     {showMedicationInput ? (
@@ -1790,7 +1837,7 @@ if (isLockedSelection) {
                           </button>
                         </span>
                       ))}
-                      <input
+                  <input
                         type="text"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && (e.target as HTMLInputElement).value.trim()) {
@@ -1798,7 +1845,7 @@ if (isLockedSelection) {
                             const value = (e.target as HTMLInputElement).value.trim();
                             if (!medications.includes(value)) {
                               setMedications([...medications, value]);
-                              markUnsaved();
+                      markUnsaved();
                             }
                             (e.target as HTMLInputElement).value = "";
                           } else if (e.key === "Backspace" && !(e.target as HTMLInputElement).value && medications.length > 0) {
@@ -1833,9 +1880,9 @@ if (isLockedSelection) {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[10px] text-slate-700 font-medium">
+                    <label className="block text-[12px] text-slate-700 font-medium">
                       Precautions
-                    </label>
+                  </label>
                     {showPrecautionsInput ? (
                       <button
                         type="button"
@@ -1867,7 +1914,7 @@ if (isLockedSelection) {
                             onClick={() => {
                               const newTags = precautions.filter((_, i) => i !== index);
                               setPrecautions(newTags);
-                              markUnsaved();
+                      markUnsaved();
                             }}
                             className="text-slate-500 hover:text-slate-700 ml-0.5"
                             aria-label={`Remove ${precaution}`}
@@ -1919,7 +1966,7 @@ if (isLockedSelection) {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[10px] text-slate-700 font-medium">
+                    <label className="block text-[12px] text-slate-700 font-medium">
                     Existing conditions
                   </label>
                     {showExistingConditionInput ? (
@@ -1953,7 +2000,7 @@ if (isLockedSelection) {
                             onClick={() => {
                               const newTags = existingConditionsText.filter((_, i) => i !== index);
                               setExistingConditionsText(newTags);
-                              markUnsaved();
+                      markUnsaved();
                             }}
                             className="text-slate-500 hover:text-slate-700 ml-0.5"
                             aria-label={`Remove ${condition}`}
@@ -1981,8 +2028,8 @@ if (isLockedSelection) {
                         placeholder={existingConditionsText.length === 0 ? "Type condition and press Enter..." : ""}
                         className="flex-1 min-w-[120px] outline-none text-[11px] text-slate-900 bg-white/40 border border-dashed border-slate-300 rounded px-2 py-0.5 focus:border-[#72B01D] focus:bg-white/60 focus:outline-none placeholder:text-slate-400"
                         autoFocus
-                      />
-                    </div>
+                  />
+                </div>
                   ) : (
                     <div>
                       {existingConditionsText.length > 0 ? (
@@ -2018,11 +2065,11 @@ if (isLockedSelection) {
 
               <div className="grid gap-3">
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                  <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                     Tonic name
                   </label>
                   <input
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     value={tonicName}
                     onChange={(e) => {
                       markUnsaved();
@@ -2033,11 +2080,11 @@ if (isLockedSelection) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                  <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                     Tonic purpose
                   </label>
                   <input
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     value={tonicPurpose}
                     onChange={(e) => {
                       markUnsaved();
@@ -2049,11 +2096,11 @@ if (isLockedSelection) {
 
                 <div className="grid gap-3 md:grid-cols-3 max-w-full">
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                       Bottle size
                     </label>
                     <select
-                      className={`w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px]
+                      className={`w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px]
                         focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]
                         ${bottleSize === "" ? "text-slate-400" : "text-slate-900"}`}
                       value={bottleSize}
@@ -2072,13 +2119,13 @@ if (isLockedSelection) {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                       Dose (per serve)
                     </label>
                     <input
                       type="number"
                       min={0}
-                      className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       value={doseMl}
                       onChange={(e) => {
                         markUnsaved();
@@ -2089,13 +2136,13 @@ if (isLockedSelection) {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
-                      Frequency per day
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
+                      Frequency 
                     </label>
                     <input
                       type="number"
                       min={0}
-                      className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       value={frequencyPerDay}
                       onChange={(e) => {
                         markUnsaved();
@@ -2107,11 +2154,11 @@ if (isLockedSelection) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                  <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                     Notes
                   </label>
                   <textarea
-                    className="w-full bg-white/70 border border-slate-200 rounded-md px-3 py-2 text-[13px] min-h-[45px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[11px] min-h-[45px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     value={patientInstructions}
                     onChange={(e) => {
                       markUnsaved();
@@ -2123,7 +2170,7 @@ if (isLockedSelection) {
               </div>
 
               <div className="pt-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pb-1.5">
                   {/* Reset button - Destructive, lowest emphasis */}
                   <button
                     type="button"
@@ -2154,8 +2201,8 @@ if (isLockedSelection) {
                   >
                     {currentTonicId ? "Edit bottle" : "Create tonic"}
                     </button>
-                </div>
-                
+                  </div>
+
                 {/* Status indicator - below buttons, right-aligned */}
                 <div className="flex justify-end mt-2">
                     {saveStatus === "saved" && (
@@ -2391,7 +2438,7 @@ if (isLockedSelection) {
                     ensureTonicId();
                     setIsWorkspaceDrawerOpen(true);
                   }}
-                  className="px-3 py-1 text-[10px] rounded-full border border-[#72b01d80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                  className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                 >
                   Edit bottle
                 </button>
@@ -2401,10 +2448,10 @@ if (isLockedSelection) {
                 <button
                   type="button"
                   onClick={() => setIsExpandedView(false)}
-                  className={`px-3 py-1 rounded-full border text-[10px] ${
+                  className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium ${
                     !isExpandedView
                       ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-300"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   Compact
@@ -2412,10 +2459,10 @@ if (isLockedSelection) {
                 <button
                   type="button"
                   onClick={() => setIsExpandedView(true)}
-                  className={`px-3 py-1 rounded-full border text-[10px] ${
+                  className={`px-3 py-1.5 rounded-lg border text-[12px] font-medium ${
                     isExpandedView
                       ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-300"
+                      : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   Detailed
@@ -2426,7 +2473,7 @@ if (isLockedSelection) {
                     setIsFullScreenTable(false);
                     setIsWorkspaceDrawerOpen(false);
                   }}
-                  className="px-3 py-1 rounded-full border text-[10px] bg-white text-slate-700 border-slate-300 hover:bg-slate-100"
+                  className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 >
                   Close
                 </button>
@@ -2441,7 +2488,7 @@ if (isLockedSelection) {
                       Body system
                     </label>
                     <select
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       value={selectedBodySystem}
                       onChange={(e) => setSelectedBodySystem(e.target.value)}
                     >
@@ -2459,7 +2506,7 @@ if (isLockedSelection) {
                       Health concern
                     </label>
                     <select
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[12px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] disabled:opacity-50"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[10px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] disabled:opacity-50"
                       value={selectedConditionId}
                       onChange={(e) => handleConditionChange(e.target.value)}
                       disabled={!selectedBodySystem}
@@ -2978,7 +3025,7 @@ if (isLockedSelection) {
 })()}
                 <input
                   type="number"
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] appearance-none text-[13px]"
+                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 mb-4 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] appearance-none text-[11px]"
                   placeholder="e.g. 5"
                   value={mlModalValue}
                   onChange={(e) => setMlModalValue(e.target.value)}
@@ -3066,23 +3113,61 @@ if (isLockedSelection) {
 
         {/* Create Client Modal */}
         {createClientModalOpen && (
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto">
-            <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 p-6 shadow-2xl my-8 max-h-[90vh] overflow-y-auto stable-scroll">
-              <h3 className="text-lg font-semibold mb-4 text-slate-900">Create New Client</h3>
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setCreateClientModalOpen(false);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setCreateClientModalOpen(false);
+              }
+            }}
+            tabIndex={-1}
+          >
+            <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl my-8 max-h-[90vh] flex flex-col">
+              <div className="flex items-start justify-between p-6 pb-4">
+                <h3 className="text-lg font-semibold text-slate-900">Create New Client</h3>
+                <button
+                  type="button"
+                  onClick={() => setCreateClientModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 text-xl leading-none w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100"
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="px-6 pb-6 overflow-y-auto stable-scroll flex-1">
 
               <div className="space-y-3">
-                <div>
-                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={newClientName}
-                    onChange={(e) => setNewClientName(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                    placeholder="Client full name"
-                    autoFocus
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={newClientFirstName}
+                      onChange={(e) => setNewClientFirstName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      placeholder="First name"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={newClientLastName}
+                      onChange={(e) => setNewClientLastName(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      placeholder="Last name"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -3094,7 +3179,7 @@ if (isLockedSelection) {
                       type="email"
                       value={newClientEmail}
                       onChange={(e) => setNewClientEmail(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="client@example.com"
                     />
                   </div>
@@ -3106,7 +3191,7 @@ if (isLockedSelection) {
                       type="tel"
                       value={newClientPhone}
                       onChange={(e) => setNewClientPhone(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="(000) 000-0000"
                     />
                   </div>
@@ -3120,20 +3205,7 @@ if (isLockedSelection) {
                     type="date"
                     value={newClientDob}
                     onChange={(e) => setNewClientDob(e.target.value)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
-                    Tags (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={newClientTags}
-                    onChange={(e) => setNewClientTags(e.target.value)}
-                    placeholder="e.g., VIP, Follow-up, Chronic"
-                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[10px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                   />
                 </div>
 
@@ -3160,10 +3232,10 @@ if (isLockedSelection) {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                  <label className="block text-[12px] mb-1 text-slate-600 font-medium">
                     Precautions
                   </label>
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3 mb-3">
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -3230,42 +3302,156 @@ if (isLockedSelection) {
                       />
                       <span className="text-[12px] text-slate-700">Liver Disease</span>
                     </label>
-                    <div>
-                      <input
-                        type="text"
-                        value={newClientFlags.allergies}
-                        onChange={(e) =>
-                          setNewClientFlags({ ...newClientFlags, allergies: e.target.value })
-                        }
-                        placeholder="Allergies details"
-                        className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[12px] mb-1 text-slate-600 font-medium">
+                      Other Precautions
+                    </label>
+                    <TagInput
+                      tags={newClientOtherPrecautions}
+                      onChange={setNewClientOtherPrecautions}
+                      placeholder="Type precaution and press Enter..."
+                    />
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-end gap-3 mt-6">
+                {/* Address Information Section */}
+                <div className="border-t border-slate-200 pt-4 mt-4">
+                  {!showAddressFields ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressFields(true)}
+                      className="text-[12px] text-[#72B01D] hover:text-[#6AA318] font-medium"
+                    >
+                      + Add address information
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-[12px] text-slate-600 font-medium">
+                          Address Information
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddressFields(false)}
+                          className="text-[11px] text-slate-500 hover:text-slate-700"
+                        >
+                          Hide
+                        </button>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                          Street 1
+                        </label>
+                        <input
+                          type="text"
+                          value={newClientStreet1}
+                          onChange={(e) => setNewClientStreet1(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                          placeholder="Street address"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                          Street 2
+                        </label>
+                        <input
+                          type="text"
+                          value={newClientStreet2}
+                          onChange={(e) => setNewClientStreet2(e.target.value)}
+                          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                          placeholder="Apartment, suite, etc. (optional)"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                            Suburb/City
+                          </label>
+                          <input
+                            type="text"
+                            value={newClientSuburb}
+                            onChange={(e) => setNewClientSuburb(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            placeholder="Suburb or city"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                            State/Region
+                          </label>
+                          <input
+                            type="text"
+                            value={newClientState}
+                            onChange={(e) => setNewClientState(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            placeholder="State or region"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                            Postcode
+                          </label>
+                          <input
+                            type="text"
+                            value={newClientPostcode}
+                            onChange={(e) => setNewClientPostcode(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                            placeholder="Postcode"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] mb-1 text-slate-700 font-medium">
+                            Country
+                          </label>
+                          <select
+                            value={newClientCountry}
+                            onChange={(e) => setNewClientCountry(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                          >
+                            <option value="">Select country...</option>
+                            {COUNTRIES.map((country) => (
+                              <option key={country} value={country}>
+                                {country}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                </div>
+              <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-4 border-t border-slate-200 mt-auto">
                 <button
                   type="button"
                   onClick={() => {
                     setCreateClientModalOpen(false);
-                    setNewClientName("");
+                    setNewClientFirstName("");
+                    setNewClientLastName("");
                     setNewClientEmail("");
                     setNewClientPhone("");
                     setNewClientDob("");
-                    setNewClientTags("");
-                      setNewClientFlags({
-                        pregnancy: false,
-                        lactation: false,
-                        anticoagulants: false,
-                        pediatric: false,
-                        kidneyDisease: false,
-                        liverDisease: false,
-                        allergies: "",
-                      });
-                      setNewClientMedications([]);
-                      setNewClientExistingConditions([]);
+                    setNewClientFlags({
+                      pregnancy: false,
+                      lactation: false,
+                      anticoagulants: false,
+                      pediatric: false,
+                      kidneyDisease: false,
+                      liverDisease: false,
+                    });
+                    setNewClientMedications([]);
+                    setNewClientExistingConditions([]);
+                    setNewClientOtherPrecautions([]);
+                    setShowAddressFields(false);
+                    setNewClientStreet1("");
+                    setNewClientStreet2("");
+                    setNewClientSuburb("");
+                    setNewClientState("");
+                    setNewClientPostcode("");
+                    setNewClientCountry("");
                   }}
                   className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
                 >
@@ -3274,7 +3460,7 @@ if (isLockedSelection) {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (!newClientName.trim()) return;
+                    if (!newClientFirstName.trim()) return;
 
                     setCreatingClient(true);
                     try {
@@ -3283,25 +3469,31 @@ if (isLockedSelection) {
                         throw new Error("Not authenticated. Please sign in again.");
                       }
 
-                      const tagsArray = newClientTags
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter((t) => t.length > 0);
+                      // For backward compatibility, also set full_name from first_name
+                      const fullName = newClientFirstName.trim() + (newClientLastName.trim() ? ` ${newClientLastName.trim()}` : "");
 
                       const { data, error } = await supabase
                         .from("clients")
                         .insert({
                           user_id: userRes.user.id,
-                          full_name: newClientName.trim(),
+                          first_name: newClientFirstName.trim(),
+                          last_name: newClientLastName.trim() || null,
+                          full_name: fullName, // Keep for backward compatibility
                           email: newClientEmail.trim() || null,
                           phone: newClientPhone.trim() || null,
                           dob: newClientDob || null,
-                          tags: tagsArray.length > 0 ? tagsArray : null,
                           flags: {
                             ...newClientFlags,
+                            otherPrecautions: newClientOtherPrecautions,
                             medications: newClientMedications,
                             existingConditions: newClientExistingConditions,
                           },
+                          street1: newClientStreet1.trim() || null,
+                          street2: newClientStreet2.trim() || null,
+                          suburb: newClientSuburb.trim() || null,
+                          state: newClientState.trim() || null,
+                          postcode: newClientPostcode.trim() || null,
+                          country: newClientCountry.trim() || null,
                         })
                         .select()
                         .single();
@@ -3325,11 +3517,11 @@ if (isLockedSelection) {
                       setClients((prev) => [...prev, data]);
                       setSelectedClientId(data.id);
                       setCreateClientModalOpen(false);
-                      setNewClientName("");
+                      setNewClientFirstName("");
+                      setNewClientLastName("");
                       setNewClientEmail("");
                       setNewClientPhone("");
                       setNewClientDob("");
-                      setNewClientTags("");
                       setNewClientFlags({
                         pregnancy: false,
                         lactation: false,
@@ -3337,10 +3529,17 @@ if (isLockedSelection) {
                         pediatric: false,
                         kidneyDisease: false,
                         liverDisease: false,
-                        allergies: "",
                       });
                       setNewClientMedications([]);
                       setNewClientExistingConditions([]);
+                      setNewClientOtherPrecautions([]);
+                      setShowAddressFields(false);
+                      setNewClientStreet1("");
+                      setNewClientStreet2("");
+                      setNewClientSuburb("");
+                      setNewClientState("");
+                      setNewClientPostcode("");
+                      setNewClientCountry("");
                       markUnsaved();
                     } catch (e: any) {
                       console.error("Failed to create client:", e);
@@ -3350,13 +3549,14 @@ if (isLockedSelection) {
                       setCreatingClient(false);
                     }
                   }}
-                  disabled={!newClientName.trim() || creatingClient}
+                  disabled={!newClientFirstName.trim() || creatingClient}
                   className="px-4 py-2 text-[12px] bg-[#72B01D] hover:bg-[#6AA318] rounded-lg font-semibold text-white border border-[#72B01D] disabled:opacity-50"
                 >
                   {creatingClient ? "Creating..." : "Create Client"}
                 </button>
               </div>
             </div>
+          </div>
           </div>
         )}
       </MainContent>

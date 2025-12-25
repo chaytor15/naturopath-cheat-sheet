@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [calendarConnected, setCalendarConnected] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -168,27 +169,27 @@ export default function SettingsPage() {
               {passwordSection && (
                 <div className="space-y-4 pt-4 border-t border-slate-200">
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                       New Password
                     </label>
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="Enter new password"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                       Confirm New Password
                     </label>
                     <input
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder="Confirm new password"
                     />
                   </div>
@@ -214,6 +215,48 @@ export default function SettingsPage() {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Calendar Integration */}
+            <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-6 shadow-lg shadow-black/5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[13px] font-semibold tracking-wide text-[#4B543B] uppercase">
+                    Calendar Integration
+                  </h2>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    Connect your calendar to sync consultations and appointments
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200">
+                {calendarConnected ? (
+                  <>
+                    <button
+                      onClick={() => setCalendarConnected(false)}
+                      className="px-4 py-2 text-[11px] font-medium rounded-md border border-red-300 bg-red-50 hover:bg-red-100 text-red-700"
+                    >
+                      Disconnect Calendar
+                    </button>
+                    <p className="text-[10px] text-slate-500 mt-2">
+                      Your calendar is connected. Disconnect to stop syncing consultations.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setCalendarConnected(true)}
+                      className="px-4 py-2 text-[11px] font-medium rounded-md border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                    >
+                      Connect Calendar
+                    </button>
+                    <p className="text-[10px] text-slate-500 mt-2">
+                      Connect your Google Calendar or other calendar service to sync consultations and appointments
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Subscription Management */}
@@ -265,7 +308,7 @@ export default function SettingsPage() {
               ) : (
                 <div className="space-y-4 pt-4 border-t border-red-200">
                   <div>
-                    <label className="block text-[10px] mb-1 text-slate-700 font-medium">
+                    <label className="block text-[12px] mb-1 text-slate-700 font-medium">
                       Type <span className="font-bold">DELETE</span> to confirm
                     </label>
                     <input
