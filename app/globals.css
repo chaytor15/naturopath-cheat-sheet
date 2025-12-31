@@ -1,13 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 @import "tailwindcss";
 
-/* your own styles below */
-body {
-  background-color: #f6f8f3; /* or whatever you like */
-  color: #1f2933;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
-  font-size: 13px; /* MVP default */
-  line-height: 1.4;
+/* tonic - Clinical SaaS Design System (Scoped to .landing-page) */
+
+@layer base {
+  /* Landing page scoped CSS variables */
+  .landing-page {
+    /* Core palette - soft purple background, lime green accent */
+    --background: 280 60% 97%;
+    --foreground: 260 20% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 260 20% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 260 20% 20%;
+
+    /* Lime green from logo #e2ff7c */
+    --primary: 75 100% 74%;
+    --primary-foreground: 260 30% 15%;
+
+    /* Soft purple #dda1ff */
+    --secondary: 280 100% 82%;
+    --secondary-foreground: 260 30% 15%;
+
+    --muted: 280 30% 94%;
+    --muted-foreground: 260 15% 45%;
+
+    --accent: 280 60% 90%;
+    --accent-foreground: 260 30% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 280 20% 88%;
+    --input: 280 20% 92%;
+    --ring: 75 100% 74%;
+
+    --radius: 0.75rem;
+
+    /* Custom tokens */
+    --lime: 75 100% 74%;
+    --lime-hover: 75 100% 68%;
+    --purple-soft: 280 100% 82%;
+    --purple-muted: 280 40% 95%;
+    --slate: 260 20% 20%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(180deg, hsl(280 60% 97%) 0%, hsl(280 50% 94%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(280 30% 98%) 100%);
+    
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(280 40% 70% / 0.15);
+    --shadow-card: 0 2px 12px -2px hsl(280 40% 70% / 0.1);
+  }
+
+  .landing-page.dark {
+    --background: 260 30% 8%;
+    --foreground: 280 20% 95%;
+
+    --card: 260 25% 12%;
+    --card-foreground: 280 20% 95%;
+
+    --popover: 260 25% 12%;
+    --popover-foreground: 280 20% 95%;
+
+    --primary: 75 100% 74%;
+    --primary-foreground: 260 30% 10%;
+
+    --secondary: 280 50% 35%;
+    --secondary-foreground: 280 20% 95%;
+
+    --muted: 260 20% 18%;
+    --muted-foreground: 260 15% 60%;
+
+    --accent: 260 25% 20%;
+    --accent-foreground: 280 20% 95%;
+
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 260 20% 20%;
+    --input: 260 20% 18%;
+    --ring: 75 100% 74%;
+  }
+
+  /* Base styles for landing page */
+  .landing-page * {
+    border-color: hsl(var(--border));
+  }
+
+  .landing-page {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+}
+
+/* Global base styles (for existing app pages) */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+  
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+  
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
 }
 
 /* Prevent layout shift from browser scrollbar */
@@ -21,47 +140,14 @@ html {
   }
 }
 
-/* keep your helpers here (scrollbar, slide-in, cell-2-lines, etc.) */
-/* ===== HERO GRADIENT LAYER ===== */
-.hero-gradient {
-  position: absolute;
-  inset: -200px 0 0 0;
-  z-index: -1;
-
-  /* Stronger, visible SaaS-style glow */
-  background:
-    radial-gradient(circle at 50% 0%, rgba(142, 208, 129, 0.45), transparent 70%),
-    radial-gradient(circle at 80% 30%, rgba(180, 210, 186, 0.40), transparent 70%),
-    radial-gradient(circle at 20% 60%, rgba(181, 127, 80, 0.25), transparent 75%);
-
-  filter: blur(80px);
-  opacity: 0.9;
-  animation: gradientShift 16s ease-in-out infinite alternate;
-}
-
-@keyframes gradientShift {
-  0% {
-    transform: translate3d(-10px, 10px, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(10px, -5px, 0) scale(1.03);
-  }
-  100% {
-    transform: translate3d(-5px, -10px, 0) scale(1.02);
-  }
-}
-
 /* Prevent layout shift from scrollbar */
 .stable-scroll {
-  /* Modern browsers: reserve space for scrollbar, only show when needed */
   scrollbar-gutter: stable;
   overflow-y: auto;
 }
 
-/* Fallback for browsers that don't support scrollbar-gutter */
 @supports not (scrollbar-gutter: stable) {
   .stable-scroll {
-    /* Always show scrollbar to prevent layout shift */
     overflow-y: scroll;
   }
 }

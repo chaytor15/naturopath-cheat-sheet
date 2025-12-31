@@ -1,18 +1,11 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
-import { Inter } from "next/font/google";
-import SidebarProviderWrapper from "@/components/SidebarProviderWrapper";
-
-const inter = Inter({
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
-  title: "tonic. — Herbal formulation workspace",
+  title: "toniic — Clinical software for integrative and natural medicine",
   description:
-    "Smarter herbal formulas in minutes, not hours. tonic. helps naturopaths build safe, effective herbal blends faster.",
+    "Clinical software built for integrative and natural medicine. Designed by naturopaths.",
 };
 
 export default function RootLayout({
@@ -22,9 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <SidebarProviderWrapper>{children}</SidebarProviderWrapper>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
