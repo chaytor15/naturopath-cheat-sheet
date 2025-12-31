@@ -7,6 +7,8 @@ import AppHeader from "@/components/AppHeader";
 import Sidebar from "@/components/Sidebar";
 import MainContent from "@/components/MainContent";
 import TagInput from "@/components/TagInput";
+import RightSidebarWrapper from "@/components/RightSidebarWrapper";
+import { useRightSidebar } from "@/contexts/RightSidebarContext";
 
 type Client = {
   id: string;
@@ -198,9 +200,6 @@ export default function ClientsPage() {
   // New note state
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
-  const [showAddNoteForm, setShowAddNoteForm] = useState(false);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editNoteText, setEditNoteText] = useState("");
 
   // Active tab state
   const [activeTab, setActiveTab] = useState<"overview" | "consultations" | "notes" | "formulas" | "profile">("overview");
@@ -208,6 +207,8 @@ export default function ClientsPage() {
   // Client list collapse state
   const [isClientListCollapsed, setIsClientListCollapsed] = useState(false);
   
+  // Right sidebar collapse state (from context)
+  const { isCollapsed: isRightSidebarCollapsed } = useRightSidebar();
 
   // Edit mode for snapshot
   const [isEditingSnapshot, setIsEditingSnapshot] = useState(false);
@@ -333,8 +334,8 @@ export default function ClientsPage() {
     loadClients();
   }, []);
 
-  // Load client details function (can be called from anywhere)
-  const loadClientDetails = async () => {
+  // Load client details when selected
+  useEffect(() => {
     if (!selectedClient) {
       setNotes([]);
       setFormulas([]);
@@ -343,26 +344,21 @@ export default function ClientsPage() {
       return;
     }
 
-    try {
-      const { data: userRes } = await supabase.auth.getUser();
-      if (!userRes.user) return;
+    const loadDetails = async () => {
+      try {
+        const { data: userRes } = await supabase.auth.getUser();
+        if (!userRes.user) return;
 
-        // Load notes (exclude Patient Summary notes from consults)
+        // Load notes
         const { data: notesData, error: notesError } = await supabase
           .from("client_notes")
           .select("*")
           .eq("client_id", selectedClient.id)
           .eq("user_id", userRes.user.id)
           .order("created_at", { ascending: false });
-        
-        // Filter out Patient Summary notes (they start with "Patient Summary —" or "Patient Summary (edited) —")
-        const filteredNotes = (notesData || []).filter(note => {
-          const noteText = note.note || "";
-          return !noteText.startsWith("Patient Summary —") && !noteText.startsWith("Patient Summary (edited) —");
-        });
 
         if (notesError) throw notesError;
-        setNotes(filteredNotes as ClientNote[]);
+        setNotes(notesData || []);
 
         // Load formulas
         const { data: formulasData, error: formulasError } = await supabase
@@ -471,14 +467,12 @@ export default function ClientsPage() {
         setHasUnsavedChanges(false);
         setSaveStatus("saved");
         setIsEditingSnapshot(false); // Reset edit mode when selecting a client
-    } catch (e: any) {
-      setError(e?.message || "Failed to load client details");
-    }
-  };
+      } catch (e: any) {
+        setError(e?.message || "Failed to load client details");
+      }
+    };
 
-  // Load client details when selected
-  useEffect(() => {
-    loadClientDetails();
+    loadDetails();
   }, [selectedClient]);
 
   // Filter and sort clients alphabetically
@@ -938,10 +932,8 @@ export default function ClientsPage() {
                           className={`w-full text-left px-4 py-3 border-b border-slate-200 transition-colors ${
                             isSelected
                               ? "bg-slate-50 border-l-2 border-l-[#72B01D]"
-                              : index % 2 === 0 
-                                ? "bg-white hover:bg-slate-50"
-                                : "bg-slate-50 hover:bg-slate-100"
-                          }`}
+                              : "hover:bg-[#EDEFE6]"
+                          } ${index % 2 === 0 ? "bg-white/80" : "bg-[#F7F8F3]/80"}`}
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex-1 min-w-0">
@@ -969,7 +961,7 @@ export default function ClientsPage() {
             </div>
 
           {/* RIGHT PANEL: Client Detail */}
-          <div className={`hidden lg:flex ${isClientListCollapsed ? 'lg:w-full' : 'lg:w-3/4'} flex stable-scroll bg-[#fff] transition-all duration-300`}>
+          <div className={`hidden lg:flex ${isClientListCollapsed ? (isRightSidebarCollapsed ? 'lg:w-full lg:mr-[70px]' : 'lg:w-full lg:mr-[280px]') : (isRightSidebarCollapsed ? 'lg:w-3/4 lg:mr-[70px]' : 'lg:w-3/4 lg:mr-[280px]')} flex stable-scroll bg-[#fff] transition-all duration-300`}>
             <div className="w-full p-6">
                 {!selectedClient ? (
                   <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -1008,16 +1000,6 @@ export default function ClientsPage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveTab("notes");
-                              setShowAddNoteForm(true);
-                            }}
-                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-                          >
-                            Add Note
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
                               router.push(`/consultations?client=${selectedClient.id}`);
                             }}
                             className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
@@ -1029,7 +1011,7 @@ export default function ClientsPage() {
                             onClick={() => {
                               router.push(`/app?client=${selectedClient.id}`);
                             }}
-                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+                            className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
                           >
                             + New Tonic
                           </button>
@@ -1120,84 +1102,6 @@ export default function ClientsPage() {
                     <div className="pt-4 pb-16">
                       {activeTab === "overview" && (
                         <div className="space-y-6">
-                          {/* Upcoming */}
-                          <div>
-                            <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
-                              Upcoming
-                            </h3>
-                            <p className="text-[12px] text-slate-500">No upcoming appointments. Calendar integration coming soon.</p>
-                          </div>
-
-                          {/* Current Medications */}
-                          <div>
-                            <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
-                              Current Medications
-                            </h3>
-                            <div className="space-y-3">
-                              {editMedications.length > 0 ? (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {editMedications.map((med, index) => (
-                                    <span
-                                      key={index}
-                                      className="inline-block px-2.5 py-1 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
-                                    >
-                                      {med}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-[12px] text-slate-500">No medications noted.</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Recent Activity */}
-                          <div>
-                            <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
-                              Recent Activity
-                            </h3>
-                            <div className="space-y-2">
-                              {(() => {
-                                // Combine notes, formulas, and consultations, sort by date
-                                const activities: Array<{type: "note" | "formula" | "consult", date: string, text: string}> = [];
-                                notes.slice(0, 5).forEach(note => {
-                                  activities.push({
-                                    type: "note",
-                                    date: note.created_at,
-                                    text: `Note added: ${(note.note || "").substring(0, 50)}${(note.note || "").length > 50 ? "..." : ""}`
-                                  });
-                                });
-                                formulas.slice(0, 5).forEach(formula => {
-                                  activities.push({
-                                    type: "formula",
-                                    date: formula.created_at,
-                                    text: `Tonic ${formula.status === "final" ? "created" : "saved"}: ${formula.title || "Untitled"}`
-                                  });
-                                });
-                                consults.forEach(consult => {
-                                  const typeLabel = consult.consult_type === "initial" ? "Initial consult" : consult.consult_type === "follow-up" ? "Follow-up consult" : "Check-in";
-                                  activities.push({
-                                    type: "consult",
-                                    date: consult.started_at || consult.created_at,
-                                    text: `Consultation: ${typeLabel}`
-                                  });
-                                });
-                                activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-                                return activities.slice(0, 5).map((activity, index) => (
-                                  <div key={index} className="text-[12px] text-slate-600 py-1.5 border-b border-slate-100 last:border-0">
-                                    <span className="text-slate-400 text-[11px]">
-                                      {new Date(activity.date).toLocaleDateString()} •{" "}
-                                    </span>
-                                    {activity.text}
-                                  </div>
-                                ));
-                              })()}
-                              {notes.length === 0 && formulas.length === 0 && consults.length === 0 && (
-                                <p className="text-[12px] text-slate-500">No recent activity.</p>
-                              )}
-                            </div>
-                          </div>
-
                           {/* Last Tonic */}
                           <div>
                             <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
@@ -1231,6 +1135,68 @@ export default function ClientsPage() {
                               <p className="text-[12px] text-slate-500">No tonics created yet.</p>
                             )}
                           </div>
+
+                          {/* Current Medications */}
+                          <div>
+                            <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
+                              Current Medications
+                            </h3>
+                            <div className="space-y-3">
+                              {editMedications.length > 0 ? (
+                                <div className="flex flex-wrap gap-1.5">
+                                  {editMedications.map((med, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-block px-2.5 py-1 rounded-full bg-white/60 backdrop-blur-sm border border-white/40 text-[11px] text-slate-700 shadow-sm"
+                                    >
+                                      {med}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-[12px] text-slate-500">No medications noted.</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Recent Activity */}
+                          <div>
+                            <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
+                              Recent Activity
+                            </h3>
+                            <div className="space-y-2">
+                              {(() => {
+                                // Combine notes and formulas, sort by date
+                                const activities: Array<{type: "note" | "formula", date: string, text: string}> = [];
+                                notes.slice(0, 5).forEach(note => {
+                                  activities.push({
+                                    type: "note",
+                                    date: note.created_at,
+                                    text: `Note added: ${note.note.substring(0, 50)}${note.note.length > 50 ? "..." : ""}`
+                                  });
+                                });
+                                formulas.slice(0, 5).forEach(formula => {
+                                  activities.push({
+                                    type: "formula",
+                                    date: formula.created_at,
+                                    text: `Tonic ${formula.status === "final" ? "created" : "saved"}: ${formula.title || "Untitled"}`
+                                  });
+                                });
+                                activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                                return activities.slice(0, 5).map((activity, index) => (
+                                  <div key={index} className="text-[12px] text-slate-600 py-1.5 border-b border-slate-100 last:border-0">
+                                    <span className="text-slate-400 text-[11px]">
+                                      {new Date(activity.date).toLocaleDateString()} •{" "}
+                                    </span>
+                                    {activity.text}
+                                  </div>
+                                ));
+                              })()}
+                              {notes.length === 0 && formulas.length === 0 && (
+                                <p className="text-[12px] text-slate-500">No recent activity.</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
 
@@ -1240,6 +1206,15 @@ export default function ClientsPage() {
                             <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide">
                               Consultations
                             </h3>
+                            {selectedClient && (
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/consultations?client=${selectedClient.id}`)}
+                                className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
+                              >
+                                + Start Consult
+                              </button>
+                            )}
                           </div>
 
                           {consults.length === 0 ? (
@@ -1263,31 +1238,26 @@ export default function ClientsPage() {
                                     key={c.id}
                                     className="p-3 rounded-lg bg-slate-50 border border-slate-200"
                                   >
-                                    <div className="flex items-start justify-between gap-3 mb-2">
-                                      <div className="min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
                                         <p className="text-[13px] font-medium text-slate-900 truncate">
                                           {typeLabel}
                                         </p>
                                         <p className="text-[11px] text-slate-600">
                                           {date}
                                         </p>
+                                        {consultSummaries[c.id] && (
+                                          <p className="text-[12px] text-slate-700 mt-2 whitespace-pre-wrap">
+                                            {consultSummaries[c.id].length > 220
+                                              ? consultSummaries[c.id].slice(0, 220) + "…"
+                                              : consultSummaries[c.id]}
+                                          </p>
+                                        )}
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => router.push(`/consultations?consult=${c.id}`)}
-                                        className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 whitespace-nowrap"
-                                      >
-                                        Open Consultation
-                                      </button>
+                                      <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                                        {c.status}
+                                      </span>
                                     </div>
-                                    {consultSummaries[c.id] && (
-                                      <div className="mt-3 pt-3 border-t border-slate-200">
-                                        <div 
-                                          className="text-[12px] text-slate-700 prose prose-sm max-w-none"
-                                          dangerouslySetInnerHTML={{ __html: consultSummaries[c.id] }}
-                                        />
-                                      </div>
-                                    )}
                                   </div>
                                 );
                               })}
@@ -1298,37 +1268,7 @@ export default function ClientsPage() {
 
                       {activeTab === "notes" && (
                         <div className="space-y-4">
-                          {showAddNoteForm && (
-                            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                              <textarea
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                placeholder="Add a note..."
-                                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] min-h-[80px]"
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={handleAddNote}
-                                  disabled={!newNote.trim() || addingNote}
-                                  className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white disabled:opacity-50"
-                                >
-                                  {addingNote ? "Adding..." : "Add Note"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setShowAddNoteForm(false);
-                                    setNewNote("");
-                                  }}
-                                  className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll">
                             {notes.length === 0 ? (
                               <p className="text-[12px] text-slate-500">No notes yet.</p>
                             ) : (
@@ -1337,106 +1277,39 @@ export default function ClientsPage() {
                                   key={note.id}
                                   className="p-3 rounded-lg bg-slate-50 border border-slate-200"
                                 >
-                                  {editingNoteId === note.id ? (
-                                    <div className="space-y-2">
-                                      <textarea
-                                        value={editNoteText}
-                                        onChange={(e) => setEditNoteText(e.target.value)}
-                                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[12px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] min-h-[80px]"
-                                      />
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            if (!editNoteText.trim()) return;
-                                            try {
-                                              const { data: userRes } = await supabase.auth.getUser();
-                                              if (!userRes.user) return;
-                                              await supabase
-                                                .from("client_notes")
-                                                .update({ note: editNoteText.trim() })
-                                                .eq("id", note.id)
-                                                .eq("user_id", userRes.user.id);
-                                              setEditingNoteId(null);
-                                              setEditNoteText("");
-                                              await loadClientDetails();
-                                            } catch (e: any) {
-                                              console.error("Failed to update note:", e);
-                                              alert(e?.message || "Failed to update note");
-                                            }
-                                          }}
-                                          className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditingNoteId(null);
-                                            setEditNoteText("");
-                                          }}
-                                          className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <>
-                                      <p className="text-[12px] text-slate-700 whitespace-pre-wrap mb-2">
-                                        {note.note}
-                                      </p>
-                                      <div className="flex items-center justify-between">
-                                        <p className="text-[10px] text-slate-500">
-                                          {new Date(note.created_at).toLocaleString()}
-                                        </p>
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setEditingNoteId(note.id);
-                                              setEditNoteText(note.note);
-                                            }}
-                                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-                                          >
-                                            Edit
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={async () => {
-                                              if (!confirm("Are you sure you want to delete this note?")) return;
-                                              try {
-                                                const { data: userRes } = await supabase.auth.getUser();
-                                                if (!userRes.user) return;
-                                                await supabase
-                                                  .from("client_notes")
-                                                  .delete()
-                                                  .eq("id", note.id)
-                                                  .eq("user_id", userRes.user.id);
-                                                await loadClientDetails();
-                                              } catch (e: any) {
-                                                console.error("Failed to delete note:", e);
-                                                alert(e?.message || "Failed to delete note");
-                                              }
-                                            }}
-                                            className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
-                                          >
-                                            Delete
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
+                                  <p className="text-[12px] text-slate-700 whitespace-pre-wrap mb-2">
+                                    {note.note}
+                                  </p>
+                                  <p className="text-[10px] text-slate-500">
+                                    {new Date(note.created_at).toLocaleString()}
+                                  </p>
                                 </div>
                               ))
                             )}
+                          </div>
+
+                          <div className="space-y-2 pt-4 border-t border-slate-200">
+                            <textarea
+                              value={newNote}
+                              onChange={(e) => setNewNote(e.target.value)}
+                              placeholder="Add a note..."
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D] min-h-[80px]"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddNote}
+                              disabled={!newNote.trim() || addingNote}
+                              className="px-3 py-1 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase disabled:opacity-50"
+                            >
+                              {addingNote ? "Adding..." : "Add Note"}
+                            </button>
                           </div>
                         </div>
                       )}
 
                       {activeTab === "formulas" && (
                         <div className="space-y-4">
-                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+                          <div className="space-y-2 max-h-[500px] overflow-y-auto stable-scroll">
                             {formulas.length === 0 ? (
                               <p className="text-[12px] text-slate-500">No formulas yet.</p>
                             ) : (
@@ -1454,12 +1327,12 @@ export default function ClientsPage() {
                                     key={formula.id}
                                     className="p-3 rounded-lg bg-slate-50 border border-slate-200"
                                   >
-                                    <div className="flex items-start justify-between gap-3 mb-2">
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-[13px] font-medium text-slate-900 truncate">
+                                    <div className="flex items-start justify-between mb-2">
+                                      <div className="flex-1">
+                                        <p className="text-[12px] font-medium text-slate-900 mb-1">
                                           {formula.title || "Untitled"}
                                         </p>
-                                        <p className="text-[11px] text-slate-600">
+                                        <p className="text-[10px] text-slate-500 mb-1">
                                           {new Date(formula.created_at).toLocaleDateString()} •{" "}
                                           <span
                                             className={
@@ -1471,7 +1344,7 @@ export default function ClientsPage() {
                                             {formula.status}
                                           </span>
                                         </p>
-                                        <div className="text-[12px] text-slate-700 space-y-0.5 mt-2">
+                                        <div className="text-[10px] text-slate-600 space-y-0.5 mt-2">
                                           <p><span className="font-medium">Bottle size:</span> {bottleText}</p>
                                           <p><span className="font-medium">Dose:</span> {doseText}</p>
                                           <p><span className="font-medium">Herbs:</span> {herbs.length > 0 ? herbs.map((h: any) => h?.herb?.herbName || h?.herbName || "Unknown").filter(Boolean).join(", ") : "None"}</p>
@@ -1483,7 +1356,16 @@ export default function ClientsPage() {
                                           )}
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 ml-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            router.push(`/app?formula=${formula.id}`);
+                                          }}
+                                          className="px-3 py-1 text-[10px] font-semibold rounded-full border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white tracking-[0.08em] uppercase"
+                                        >
+                                          Load to Workspace
+                                        </button>
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -1494,18 +1376,9 @@ export default function ClientsPage() {
                                               }
                                             }
                                           }}
-                                          className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 whitespace-nowrap"
+                                          className="px-3 py-1 text-[10px] font-semibold rounded-full border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 tracking-[0.08em] uppercase"
                                         >
                                           Duplicate
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            router.push(`/app?formula=${formula.id}`);
-                                          }}
-                                          className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 whitespace-nowrap"
-                                        >
-                                          Load to Workspace
                                         </button>
                                       </div>
                                     </div>
@@ -2140,7 +2013,7 @@ export default function ClientsPage() {
                   ×
                 </button>
               </div>
-              <div className="px-6 pb-6 overflow-y-auto stable-scroll flex-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400">
+              <div className="px-6 pb-6 overflow-y-auto stable-scroll flex-1">
 
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -2538,6 +2411,26 @@ export default function ClientsPage() {
           </div>
         )}
       </MainContent>
+      <RightSidebarWrapper
+        totalClients={clients.length}
+        activeClients={activeClientsCount}
+        recentActivity={recentActivity}
+        onCreateClient={() => setCreateModalOpen(true)}
+        onCreateTonic={() => {
+          if (selectedClient) {
+            router.push(`/app?client=${selectedClient.id}`);
+          } else {
+            router.push("/app");
+          }
+        }}
+        onCreateConsultation={() => {
+          if (selectedClient) {
+            router.push(`/consultations?client=${selectedClient.id}`);
+          } else {
+            router.push("/consultations");
+          }
+        }}
+      />
     </>
   );
 }

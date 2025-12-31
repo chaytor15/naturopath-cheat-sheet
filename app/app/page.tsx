@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, useRef, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import jsPDF from "jspdf"; // npm install jspdf
 import AuthButton from "@/components/AuthButton";
@@ -229,6 +229,7 @@ export default function HomePage() {
   const [clientName, setClientName] = useState("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const clientSearchInputRef = useRef<HTMLInputElement>(null);
   const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
   const [newClientFirstName, setNewClientFirstName] = useState("");
   const [newClientLastName, setNewClientLastName] = useState("");
@@ -269,6 +270,18 @@ export default function HomePage() {
       return () => window.removeEventListener("keydown", handleEsc);
     }
   }, [createClientModalOpen]);
+
+  // CTRL + K handler for client search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        clientSearchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
   
   const [tonicPurpose, setTonicPurpose] = useState("");
   const [medications, setMedications] = useState<string[]>([]);
@@ -1096,6 +1109,50 @@ if (isLockedSelection) {
     setMlModalValue("");
   };
 
+  // ESC key handler for ML edit modal (prioritize this over fullscreen)
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && mlModalOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleCloseMlModal();
+      }
+    };
+    if (mlModalOpen) {
+      window.addEventListener("keydown", handleEsc, true); // Use capture phase
+      return () => window.removeEventListener("keydown", handleEsc, true);
+    }
+  }, [mlModalOpen]);
+
+  // ESC key handler for workspace drawer (prioritize this over fullscreen)
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isWorkspaceDrawerOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsWorkspaceDrawerOpen(false);
+      }
+    };
+    if (isWorkspaceDrawerOpen) {
+      window.addEventListener("keydown", handleEsc, true); // Use capture phase
+      return () => window.removeEventListener("keydown", handleEsc, true);
+    }
+  }, [isWorkspaceDrawerOpen]);
+
+  // ESC key handler for fullscreen mode (only if ML modal and drawer are not open)
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullScreenTable && !mlModalOpen && !isWorkspaceDrawerOpen) {
+        setIsFullScreenTable(false);
+        setIsWorkspaceDrawerOpen(false);
+      }
+    };
+    if (isFullScreenTable) {
+      window.addEventListener("keydown", handleEsc);
+      return () => window.removeEventListener("keydown", handleEsc);
+    }
+  }, [isFullScreenTable, mlModalOpen, isWorkspaceDrawerOpen]);
+
   // tonic-level handlers (Create/Edit, Save, Reset, Export)
   const handleCreateOrEditTonic = () => {
     if (!currentTonicId) {
@@ -1542,21 +1599,15 @@ if (isLockedSelection) {
       <AppHeader />
       <Sidebar />
 
-      <MainContent className={isFullScreenTable ? "overflow-hidden" : ""}>
-        <div className="max-w-6xl mx-auto py-10 px-4">
-          {/* MAIN 3 CARDS */}
-          <section className="mb-10 grid gap-6 md:grid-cols-3 items-start">
-            {/* CLIENT DETAILS */}
-            <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-4 space-y-4 shadow-lg shadow-black/5 h-[420px]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold tracking-wide text-[#4B543B]">
-                  Client details
-                </h2>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472]">
-                  Intake
-                </span>
-              </div>
-
+      <MainContent className={isFullScreenTable ? "overflow-hidden" : "h-screen flex flex-col"}>
+        <div className="flex-1 flex min-h-0">
+          {/* LEFT PANE: Client Details */}
+          <div className="hidden lg:flex w-[280px] border-r border-slate-200 bg-white flex-col">
+            <div className="flex-shrink-0 p-4 border-b border-slate-200">
+              <h2 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide">Client Details</h2>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472] mt-1 block">Intake</span>
+            </div>
+            <div className="flex-1 overflow-y-auto stable-scroll p-4 space-y-4">
               <div className="grid gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -1573,8 +1624,9 @@ if (isLockedSelection) {
                   </div>
                   <div className="relative">
                   <input
+                      ref={clientSearchInputRef}
                       type="text"
-                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                      className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-1.5 pr-16 text-[11px] text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                       placeholder={!selectedClientId ? "Select a client..." : ""}
                       value={selectedClientId && !clientSearchQuery ? (clients.find(c => c.id === selectedClientId)?.full_name || clientName || "") : clientSearchQuery}
                     onChange={(e) => {
@@ -1696,6 +1748,9 @@ if (isLockedSelection) {
                         })()}
                       </div>
                     )}
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[10px] text-slate-400">
+                      Ctrl K
+                    </span>
                   </div>
                   {selectedClientId && clientFormulas.length > 0 && (
                     <div className="mt-2">
@@ -2051,18 +2106,15 @@ if (isLockedSelection) {
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* TONIC DETAILS */}
-            <div className="relative rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-4 space-y-4 shadow-lg shadow-black/5 h-[420px]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold tracking-wide text-[#4B543B]">
-                  Tonic details
-                </h2>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472]">
-                  Prescription
-                </span>
-              </div>
-
+          {/* MIDDLE PANE: Tonic Details */}
+          <div className="flex-1 border-r border-slate-200 flex flex-col bg-white min-w-0">
+            <div className="flex-shrink-0 p-4 border-b border-slate-200">
+              <h2 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide">Tonic Details</h2>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472] mt-1 block">Prescription</span>
+            </div>
+            <div className="flex-1 overflow-y-auto stable-scroll p-4 space-y-4">
               <div className="grid gap-3">
                 <div>
                   <label className="block text-[12px] mb-1 text-slate-700 font-medium">
@@ -2158,7 +2210,7 @@ if (isLockedSelection) {
                     Notes
                   </label>
                   <textarea
-                    className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[11px] min-h-[45px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
+                    className="w-full bg-white/70 border border-slate-200 rounded-lg px-3 py-2 text-[11px] h-[90px] resize-none overflow-y-auto text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#72B01D66] focus:border-[#72B01D]"
                     value={patientInstructions}
                     onChange={(e) => {
                       markUnsaved();
@@ -2170,75 +2222,73 @@ if (isLockedSelection) {
               </div>
 
               <div className="pt-1">
-                <div className="flex items-center justify-between pb-1.5">
-                  {/* Reset button - Destructive, lowest emphasis */}
-                  <button
-                    type="button"
-                    onClick={handleResetTonic}
-                    disabled={
-                      !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
-                    }
-                    className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
-                  >
-                    Reset form
-                  </button>
-
-                  {/* Save button - Secondary, de-emphasized, centered */}
-                    <button
-                      type="button"
-                      onClick={handleSaveTonic}
-                      disabled={workspaceHerbs.length === 0}
-                    className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40 hover:bg-slate-50"
-                    >
-                      Save
-                    </button>
-
-                  {/* Create button - Primary, most prominent */}
-                    <button
-                      type="button"
-                    onClick={handleCreateOrEditTonic}
-                    className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
-                  >
-                    {currentTonicId ? "Edit bottle" : "Create tonic"}
-                    </button>
-                  </div>
-
-                {/* Status indicator - below buttons, right-aligned */}
-                <div className="flex justify-end mt-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  {/* Status indicator - text only, left aligned */}
+                  <div>
                     {saveStatus === "saved" && (
-                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-[#E4F4D9] text-[#355925] border border-[#9ACC77] text-[8px]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#3B7C1E]" />
+                      <span className="text-[11px] text-[#355925]">
                         All changes saved
                       </span>
                     )}
 
                     {saveStatus === "error" && (
-                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-red-50 text-red-700 border border-red-200 text-[8px]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                      <span className="text-[11px] text-red-700">
                         Save failed – check browser storage
                       </span>
                     )}
 
                     {saveStatus === "idle" && (
-                  <span className="inline-flex items-center gap-0.5 px-1.75 py-0.75 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-[8px]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400 animate-pulse" />
+                      <span className="text-[11px] text-slate-600">
                         Unsaved changes
                       </span>
                     )}
+                  </div>
+
+                  {/* Buttons - right aligned */}
+                  <div className="flex items-center gap-2">
+                    {/* Reset button - Destructive, lowest emphasis */}
+                    <button
+                      type="button"
+                      onClick={handleResetTonic}
+                      disabled={
+                        !currentTonicId && workspaceHerbs.length === 0 && !clientName && !tonicName
+                      }
+                      className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-600 disabled:opacity-40 hover:bg-slate-50 hover:text-slate-700"
+                    >
+                      Reset form
+                    </button>
+
+                    {/* Save button - Secondary, de-emphasized */}
+                      <button
+                        type="button"
+                        onClick={handleSaveTonic}
+                        disabled={workspaceHerbs.length === 0}
+                      className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 disabled:opacity-40 hover:bg-slate-50"
+                      >
+                        Save
+                      </button>
+
+                    {/* Create button - Primary, most prominent */}
+                      <button
+                        type="button"
+                      onClick={handleCreateOrEditTonic}
+                      className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                    >
+                      {currentTonicId ? "Edit bottle" : "Create tonic"}
+                      </button>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* WORKSPACE CARD */}
-            <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-4 space-y-4 shadow-lg shadow-black/5 flex flex-col min-h-[420px]">
-              <div className="flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold tracking-wide text-[#4B543B]">
-                  Workspace bottle
-                </h2>
-                <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472]">
-                  Formula
-                </span>
-              </div>
+          {/* RIGHT PANE: Workspace Bottle */}
+          <div className="flex-1 flex flex-col bg-white min-w-0">
+            <div className="flex-shrink-0 p-4 border-b border-slate-200">
+              <h2 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide">Workspace Bottle</h2>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-[#7D8472] mt-1 block">Formula</span>
+            </div>
+            <div className="flex-1 overflow-y-auto stable-scroll p-4 space-y-4">
 
               <div className="flex items-center gap-4">
                 <div className="flex flex-col items-center">
@@ -2415,13 +2465,13 @@ if (isLockedSelection) {
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         </div>
 
         {/* FULL SCREEN HERB TABLE OVERLAY */}
         {isFullScreenTable && (
           <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/70 backdrop-blur-sm">
-            <div className="grid grid-cols-3 items-center px-6 py-2 bg-white/95 border-b border-slate-200">
+            <div className="flex items-center justify-between px-6 py-2 bg-white/95 border-b border-slate-200">
               <div className="flex flex-col justify-center">
                 <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
                   Herbal data
@@ -2431,20 +2481,17 @@ if (isLockedSelection) {
                 </span>
               </div>
 
-              <div className="flex justify-center">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     ensureTonicId();
                     setIsWorkspaceDrawerOpen(true);
                   }}
-                  className="px-3 py-1.5 text-[12px] font-semibold rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white"
+                  className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                 >
                   Edit bottle
                 </button>
-              </div>
-
-              <div className="flex items-center gap-2 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsExpandedView(false)}
@@ -2693,7 +2740,7 @@ if (isLockedSelection) {
                   onClick={() => setIsWorkspaceDrawerOpen(false)}
                   className="ml-4 rounded-full border border-slate-300 px-3 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
                 >
-                  Close
+                  Done
                 </button>
               </div>
 
@@ -2877,15 +2924,6 @@ if (isLockedSelection) {
                   )}
                 </div>
 
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsWorkspaceDrawerOpen(false)}
-                    className="px-4 py-2 text-[12px] rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
-                  >
-                    Done
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -2976,7 +3014,7 @@ if (isLockedSelection) {
 
         {/* mL ENTRY / EDIT MODAL */}
         {mlModalOpen && mlModalHerb && (
-          <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
             <div className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 shadow-2xl">
               <form
                 onSubmit={(e) => {

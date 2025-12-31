@@ -26,3 +26,15 @@ CREATE INDEX IF NOT EXISTS idx_clients_first_name ON clients(first_name);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
