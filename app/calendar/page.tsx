@@ -47,6 +47,14 @@ export default function CalendarPage() {
       if (clientId) setSelectedClientId(clientId);
       setShowNewModal(true);
     }
+    
+    // Check for OAuth callback params
+    if (searchParams.get("connected") === "true") {
+      setCalendarConnected(true);
+    }
+    if (searchParams.get("error")) {
+      console.error("Calendar connection error:", searchParams.get("error"));
+    }
   }, [searchParams]);
 
   // Auth check and load data
@@ -60,7 +68,53 @@ export default function CalendarPage() {
 
       const user = sessionData.session.user;
 
-      // Load consultations
+      // Check calendar connection
+      const { data: calendarData } = await supabase
+        .from("calendar_connections")
+        .select("id")
+        .eq("user_id", user.id)
+        .single();
+      
+      setCalendarConnected(!!calendarData);
+
+      // Load bookings (from bookings table, not consultations)
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from("bookings")
+        .select(`
+          *,
+          clients:client_id (
+            id,
+            first_name,
+            last_name,
+            full_name
+          )
+        `)
+        .eq("practitioner_id", user.id)
+        .in("status", ["pending", "confirmed"])
+        .order("start_time", { ascending: true });
+
+      // Load bookings (from bookings table, not consultations)
+      const allConsultations: Consultation[] = [];
+
+      if (!bookingsError && bookingsData) {
+        // Convert bookings to consultations format for display
+        const converted = bookingsData.map((b: any) => ({
+          id: b.id,
+          client_id: b.client_id,
+          user_id: b.practitioner_id,
+          title: b.consult_type,
+          start_time: b.start_time,
+          end_time: b.end_time,
+          notes: b.notes,
+          location: b.google_meet_link,
+          calendar_event_id: b.calendar_event_id,
+          created_at: b.created_at,
+          client: b.clients,
+        }));
+        allConsultations.push(...(converted as Consultation[]));
+      }
+
+      // Also load old consultations for backward compatibility (only if they don't overlap with bookings)
       const { data: consultationsData, error: consultationsError } = await supabase
         .from("consultations")
         .select(`
@@ -76,8 +130,23 @@ export default function CalendarPage() {
         .order("start_time", { ascending: true });
 
       if (!consultationsError && consultationsData) {
-        setConsultations(consultationsData as any);
+        // Only add consultations that don't have matching booking IDs
+        const bookingIds = new Set(bookingsData?.map((b: any) => b.id) || []);
+        const uniqueConsultations = (consultationsData as Consultation[]).filter(
+          (c) => !bookingIds.has(c.id)
+        );
+        allConsultations.push(...uniqueConsultations);
       }
+
+      // Deduplicate by ID to prevent duplicate keys
+      const uniqueById = new Map<string, Consultation>();
+      allConsultations.forEach((c) => {
+        if (!uniqueById.has(c.id)) {
+          uniqueById.set(c.id, c);
+        }
+      });
+
+      setConsultations(Array.from(uniqueById.values()));
 
       // Load clients for dropdown
       const { data: clientsData } = await supabase
@@ -95,6 +164,40 @@ export default function CalendarPage() {
 
     loadData();
   }, [router]);
+
+  const handleConnectCalendar = () => {
+    window.location.href = "/api/calendar/oauth/authorize";
+  };
+
+  const handleDisconnectCalendar = async () => {
+    if (!confirm("Are you sure you want to disconnect your Google Calendar? This will stop automatic event creation.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/calendar/disconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setCalendarConnected(false);
+        // Reload data to refresh the UI
+        window.location.reload();
+      } else {
+        const errorMessage = data.error || "Failed to disconnect calendar";
+        console.error("Disconnect error:", errorMessage);
+        alert(`Failed to disconnect calendar: ${errorMessage}`);
+      }
+    } catch (error: any) {
+      console.error("Error disconnecting calendar:", error);
+      alert(`Error disconnecting calendar: ${error?.message || "Unknown error"}`);
+    }
+  };
 
   const getClientName = (client: Consultation["client"] | null): string => {
     if (!client) return "No client";
@@ -424,14 +527,14 @@ export default function CalendarPage() {
             <div className="flex items-center gap-2">
               {calendarConnected ? (
                 <button
-                  onClick={() => setCalendarConnected(false)}
+                  onClick={handleDisconnectCalendar}
                   className="text-[12px] font-medium text-red-700 hover:text-red-800"
                 >
                   Disconnect Calendar
                 </button>
               ) : (
                 <button
-                  onClick={() => setCalendarConnected(true)}
+                  onClick={handleConnectCalendar}
                   className="px-4 py-2 text-[12px] font-medium rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700"
                 >
                   Connect Calendar

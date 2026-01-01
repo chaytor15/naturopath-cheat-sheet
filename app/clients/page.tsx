@@ -158,6 +158,13 @@ export default function ClientsPage() {
   const [formulas, setFormulas] = useState<Formula[]>([]);
   const [consults, setConsults] = useState<Consult[]>([]);
   const [consultSummaries, setConsultSummaries] = useState<Record<string, string>>({});
+  const [upcomingBookings, setUpcomingBookings] = useState<Array<{
+    id: string;
+    consult_type: string;
+    start_time: string;
+    end_time: string;
+    status: string;
+  }>>([]);
   // Store all formulas and notes for all clients to calculate last interaction
   const [allFormulas, setAllFormulas] = useState<Formula[]>([]);
   const [allNotes, setAllNotes] = useState<ClientNote[]>([]);
@@ -340,11 +347,26 @@ export default function ClientsPage() {
       setFormulas([]);
       setConsults([]);
       setConsultSummaries({});
+      setUpcomingBookings([]);
       return;
     }
 
     try {
       const { data: userRes } = await supabase.auth.getUser();
+      
+      // Load upcoming bookings
+      const now = new Date().toISOString();
+      const { data: bookingsData } = await supabase
+        .from("bookings")
+        .select("id, consult_type, start_time, end_time, status")
+        .eq("practitioner_id", userRes.user.id)
+        .eq("client_id", selectedClient.id)
+        .in("status", ["pending", "confirmed"])
+        .gte("start_time", now)
+        .order("start_time", { ascending: true })
+        .limit(5);
+      
+      setUpcomingBookings(bookingsData || []);
       if (!userRes.user) return;
 
         // Load notes (exclude Patient Summary notes from consults)
@@ -1125,7 +1147,57 @@ export default function ClientsPage() {
                             <h3 className="text-[11px] font-semibold text-[#4B543B] uppercase tracking-wide mb-3">
                               Upcoming
                             </h3>
-                            <p className="text-[12px] text-slate-500">No upcoming appointments. Calendar integration coming soon.</p>
+                            {upcomingBookings.length > 0 ? (
+                              <div className="space-y-2">
+                                {upcomingBookings.map((booking) => {
+                                  const startDate = new Date(booking.start_time);
+                                  const endDate = new Date(booking.end_time);
+                                  const consultTypeName = booking.consult_type
+                                    .split('-')
+                                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                    .join(' ');
+                                  
+                                  return (
+                                    <div
+                                      key={booking.id}
+                                      className="p-3 rounded-lg border border-slate-200 bg-white"
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="text-[12px] font-semibold text-slate-900 mb-1">
+                                            {consultTypeName}
+                                          </div>
+                                          <div className="text-[11px] text-slate-600">
+                                            {startDate.toLocaleDateString("en-US", {
+                                              weekday: "short",
+                                              month: "short",
+                                              day: "numeric",
+                                            })}{" "}
+                                            {startDate.toLocaleTimeString("en-US", {
+                                              hour: "numeric",
+                                              minute: "2-digit",
+                                            })}
+                                            {" - "}
+                                            {endDate.toLocaleTimeString("en-US", {
+                                              hour: "numeric",
+                                              minute: "2-digit",
+                                            })}
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => router.push(`/consultations?client=${selectedClient.id}&booking=${booking.id}`)}
+                                          className="ml-3 px-3 py-1.5 text-[11px] font-medium rounded-lg border border-[#72B01D80] bg-[#72B01D] hover:bg-[#6AA318] text-white whitespace-nowrap"
+                                        >
+                                          Begin Consultation
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-[12px] text-slate-500">No upcoming appointments.</p>
+                            )}
                           </div>
 
                           {/* Current Medications */}
