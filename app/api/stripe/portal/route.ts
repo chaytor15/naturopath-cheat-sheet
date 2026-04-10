@@ -1,6 +1,6 @@
 // app/api/stripe/portal/route.ts
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
 export const runtime = "nodejs";
@@ -38,7 +38,7 @@ export async function POST() {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
     if (!appUrl) throw new Error("Missing NEXT_PUBLIC_APP_URL");
 
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
       return_url: `${appUrl}/settings`,
     });
