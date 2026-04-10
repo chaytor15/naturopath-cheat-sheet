@@ -7,11 +7,19 @@ const SIDEBAR_STATE_KEY = "sidebar_collapsed";
 type SidebarContextType = {
   isCollapsed: boolean;
   toggleCollapse: () => void;
+  /** When false, the left nav is not rendered (e.g. signed out or booking flow). */
+  sidebarVisible: boolean;
 };
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
-export function SidebarProvider({ children }: { children: ReactNode }) {
+export function SidebarProvider({
+  children,
+  sidebarVisible = true,
+}: {
+  children: ReactNode;
+  sidebarVisible?: boolean;
+}) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -30,7 +38,9 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SidebarContext.Provider value={{ isCollapsed, toggleCollapse }}>
+    <SidebarContext.Provider
+      value={{ isCollapsed, toggleCollapse, sidebarVisible }}
+    >
       {children}
     </SidebarContext.Provider>
   );
@@ -40,7 +50,11 @@ export function useSidebar() {
   const context = useContext(SidebarContext);
   // Return default values if context is not available (for pages that don't need sidebar)
   if (context === undefined) {
-    return { isCollapsed: false, toggleCollapse: () => {} };
+    return {
+      isCollapsed: false,
+      toggleCollapse: () => {},
+      sidebarVisible: true,
+    };
   }
   return context;
 }
