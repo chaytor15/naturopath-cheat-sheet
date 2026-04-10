@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/lib/supabaseClient";
+import { getAuthCallbackUrl, getAuthRedirectOrigin } from "@/lib/authRedirect";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 
@@ -18,7 +19,7 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    setOrigin(window.location.origin);
+    setOrigin(getAuthRedirectOrigin());
   }, []);
 
   // If already signed in (or once sign-in completes), route to /app
@@ -55,7 +56,7 @@ export default function LoginPage() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: getAuthCallbackUrl(),
           queryParams: { prompt: "select_account" },
         },
       });

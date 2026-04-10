@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getAuthCallbackUrl, getAuthRedirectOrigin } from "@/lib/authRedirect";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
@@ -14,7 +15,7 @@ export default function SignupPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setOrigin(window.location.origin);
+    setOrigin(getAuthRedirectOrigin());
   }, []);
 
   const signUp = async () => {
@@ -26,7 +27,7 @@ export default function SignupPage() {
       password,
       options: {
         // ✅ confirm email link will come back to callback, which we route to /login
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: getAuthCallbackUrl(),
       },
     });
 
