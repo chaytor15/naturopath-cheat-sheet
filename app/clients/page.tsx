@@ -353,7 +353,8 @@ export default function ClientsPage() {
 
     try {
       const { data: userRes } = await supabase.auth.getUser();
-      
+      if (!userRes.user) return;
+
       // Load upcoming bookings
       const now = new Date().toISOString();
       const { data: bookingsData } = await supabase
@@ -365,9 +366,8 @@ export default function ClientsPage() {
         .gte("start_time", now)
         .order("start_time", { ascending: true })
         .limit(5);
-      
+
       setUpcomingBookings(bookingsData || []);
-      if (!userRes.user) return;
 
         // Load notes (exclude Patient Summary notes from consults)
         const { data: notesData, error: notesError } = await supabase

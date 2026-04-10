@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from("clinic_settings")
-      .select("timezone, business_hours, advance_booking_days")
+      .select("timezone, business_hours, advance_booking_days, currency")
       .eq("user_id", practitionerId)
       .single();
 
@@ -44,6 +44,7 @@ export async function GET(request: Request) {
         sunday: { start: "09:00", end: "13:00", enabled: false },
       },
       advance_booking_days: data?.advance_booking_days || 30,
+      currency: data?.currency || "USD",
     });
   } catch (err: any) {
     console.error("Clinic settings API error:", err);
@@ -53,4 +54,7 @@ export async function GET(request: Request) {
     );
   }
 }
+
+
+
 

@@ -21,6 +21,8 @@ type ConsultTypePricing = {
 
 type ClinicSettings = {
   timezone: string;
+  buffer_time_minutes: number;
+  currency: string;
   email_templates: Record<string, {
     client_subject?: string;
     client_body?: string;
@@ -42,6 +44,30 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// Currency symbol mapping
+const getCurrencySymbol = (currency: string): string => {
+  const symbols: Record<string, string> = {
+    USD: "$",
+    NZD: "$",
+    AUD: "$",
+    EUR: "€",
+    GBP: "£",
+  };
+  return symbols[currency] || "$";
+};
+
+// Get currency display format: "USD ($)", "EUR (€)", etc.
+const getCurrencyDisplay = (currency: string): string => {
+  const display: Record<string, string> = {
+    USD: "USD ($)",
+    NZD: "NZD ($)",
+    AUD: "AUD ($)",
+    EUR: "EUR (€)",
+    GBP: "GBP (£)",
+  };
+  return display[currency] || "USD ($)";
+};
+
 export default function MyClinicPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -49,6 +75,8 @@ export default function MyClinicPage() {
   const [consultTypes, setConsultTypes] = useState<ConsultTypePricing[]>([]);
   const [clinicSettings, setClinicSettings] = useState<ClinicSettings>({
     timezone: "Australia/Sydney",
+    buffer_time_minutes: 15,
+    currency: "USD",
     email_templates: {},
   });
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -110,11 +138,42 @@ export default function MyClinicPage() {
       setConsultTypes(types);
 
       // Load clinic settings
-      const { data: settingsData, error: settingsError } = await supabase
+      // Try to select with currency first, fallback if column doesn't exist
+      let settingsData: any = null;
+      let settingsError: any = null;
+      let currency = "USD";
+      
+      // Try selecting with currency
+      const resultWithCurrency = await supabase
         .from("clinic_settings")
-        .select("timezone, email_templates")
+        .select("timezone, buffer_time_minutes, currency, email_templates")
         .eq("user_id", user.id)
         .single();
+      
+      if (resultWithCurrency.error) {
+        // If error mentions currency column, try without it
+        if (resultWithCurrency.error.message?.includes("currency") || resultWithCurrency.error.message?.includes("column")) {
+          const resultWithoutCurrency = await supabase
+            .from("clinic_settings")
+            .select("timezone, buffer_time_minutes, email_templates")
+            .eq("user_id", user.id)
+            .single();
+          settingsData = resultWithoutCurrency.data;
+          settingsError = resultWithoutCurrency.error;
+          // Use default currency
+          currency = "USD";
+        } else if (resultWithCurrency.error.code === "PGRST116") {
+          // No row found - that's okay
+          settingsData = null;
+          settingsError = null;
+        } else {
+          settingsData = resultWithCurrency.data;
+          settingsError = resultWithCurrency.error;
+        }
+      } else {
+        settingsData = resultWithCurrency.data;
+        currency = resultWithCurrency.data?.currency || "USD";
+      }
 
       if (settingsError && settingsError.code !== "PGRST116") {
         console.error("Error loading clinic settings:", settingsError);
@@ -123,7 +182,17 @@ export default function MyClinicPage() {
       if (settingsData) {
         setClinicSettings({
           timezone: settingsData.timezone || "Australia/Sydney",
+          buffer_time_minutes: settingsData.buffer_time_minutes ?? 15,
+          currency: currency,
           email_templates: settingsData.email_templates || {},
+        });
+      } else {
+        // Set defaults if no settings exist
+        setClinicSettings({
+          timezone: "Australia/Sydney",
+          buffer_time_minutes: 15,
+          currency: "USD",
+          email_templates: {},
         });
       }
     } catch (error) {
@@ -224,6 +293,7 @@ export default function MyClinicPage() {
         .upsert({
           user_id: user.id,
           timezone: clinicSettings.timezone,
+          currency: clinicSettings.currency,
           email_templates: clinicSettings.email_templates,
         }, {
           onConflict: "user_id",
@@ -272,22 +342,45 @@ export default function MyClinicPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { error } = await supabase
+      // Try to save with currency first
+      const updateData: any = {
+        user_id: user.id,
+        timezone: clinicSettings.timezone,
+        buffer_time_minutes: clinicSettings.buffer_time_minutes,
+        email_templates: clinicSettings.email_templates,
+        currency: clinicSettings.currency,
+      };
+
+      let { error } = await supabase
         .from("clinic_settings")
-        .upsert({
-          user_id: user.id,
-          timezone: clinicSettings.timezone,
-          email_templates: clinicSettings.email_templates,
-        }, {
+        .upsert(updateData, {
           onConflict: "user_id",
         });
 
-      if (error) throw error;
-
-      alert("Timezone saved successfully!");
+      // If error is about currency column not existing, retry without it
+      if (error && (error.message?.includes("currency") || error.message?.includes("column") || error.message?.includes("schema cache"))) {
+        console.log("Currency column not found, saving without currency field");
+        const { error: retryError } = await supabase
+          .from("clinic_settings")
+          .upsert({
+            user_id: user.id,
+            timezone: clinicSettings.timezone,
+            buffer_time_minutes: clinicSettings.buffer_time_minutes,
+            email_templates: clinicSettings.email_templates,
+          }, {
+            onConflict: "user_id",
+          });
+        
+        if (retryError) throw retryError;
+        alert("Settings saved successfully! Note: Please run the migration 'add_currency_to_clinic_settings.sql' to enable currency selection.");
+      } else if (error) {
+        throw error;
+      } else {
+        alert("Settings saved successfully!");
+      }
     } catch (error: any) {
-      console.error("Error saving timezone:", error);
-      alert(`Error saving timezone: ${error.message}`);
+      console.error("Error saving settings:", error);
+      alert(`Error saving settings: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -322,13 +415,13 @@ export default function MyClinicPage() {
         <div className="p-8">
           <h1 className="text-2xl font-semibold mb-6 text-slate-900">My Clinic</h1>
 
-          {/* Timezone Section */}
+          {/* Timezone & Buffer Section */}
           <div className="rounded-2xl border border-white/50 bg-white/80 backdrop-blur-lg p-6 shadow-lg shadow-black/5 mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Clinic Timezone</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Clinic Settings</h2>
                 <p className="text-sm text-slate-600 mt-1">
-                  Set your clinic's timezone. All booking times will be displayed in this timezone for clients.
+                  Configure your clinic's timezone, currency, and booking buffer time.
                 </p>
               </div>
               <button
@@ -336,27 +429,64 @@ export default function MyClinicPage() {
                 disabled={saving}
                 className="px-4 py-2 text-sm font-medium rounded-md bg-[#72B01D] hover:bg-[#6AA318] text-white disabled:opacity-50"
               >
-                {saving ? "Saving..." : "Save Timezone"}
+                {saving ? "Saving..." : "Save Settings"}
               </button>
             </div>
-            <div className="max-w-md">
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Timezone
-              </label>
-              <select
-                value={clinicSettings.timezone}
-                onChange={(e) => setClinicSettings({ ...clinicSettings, timezone: e.target.value })}
-                className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
-              >
-                {timezones.map((tz) => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-slate-500 mt-2">
-                Clients will see booking times in this timezone, regardless of their location.
-              </p>
+            <div className="space-y-4 max-w-md">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Timezone
+                </label>
+                <select
+                  value={clinicSettings.timezone}
+                  onChange={(e) => setClinicSettings({ ...clinicSettings, timezone: e.target.value })}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                >
+                  {timezones.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-2">
+                  Clients will see booking times in this timezone, regardless of their location.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Buffer Time (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="60"
+                  value={clinicSettings.buffer_time_minutes}
+                  onChange={(e) => setClinicSettings({ ...clinicSettings, buffer_time_minutes: parseInt(e.target.value) || 0 })}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                />
+                <p className="text-xs text-slate-500 mt-2">
+                  Time buffer around bookings and calendar events. This prevents back-to-back bookings.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Currency
+                </label>
+                <select
+                  value={clinicSettings.currency}
+                  onChange={(e) => setClinicSettings({ ...clinicSettings, currency: e.target.value })}
+                  className="w-full px-4 py-2 text-sm border border-slate-300 rounded-lg bg-white"
+                >
+                  <option value="USD">USD - US Dollar ($)</option>
+                  <option value="NZD">NZD - New Zealand Dollar ($)</option>
+                  <option value="EUR">EUR - Euro (€)</option>
+                  <option value="AUD">AUD - Australian Dollar ($)</option>
+                  <option value="GBP">GBP - British Pound (£)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-2">
+                  Currency displayed on the booking page for consultation prices.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -411,7 +541,7 @@ export default function MyClinicPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Price ($)
+                        Price ({getCurrencyDisplay(clinicSettings.currency)})
                       </label>
                       <input
                         type="number"
@@ -476,7 +606,7 @@ export default function MyClinicPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
-                    Price ($)
+                    Price ({getCurrencyDisplay(clinicSettings.currency)})
                   </label>
                   <input
                     type="number"

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ConfirmationPage() {
+function ConfirmationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("bookingId");
@@ -44,4 +44,19 @@ export default function ConfirmationPage() {
     </div>
   );
 }
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 text-slate-600 text-sm">
+          Loading…
+        </div>
+      }
+    >
+      <ConfirmationContent />
+    </Suspense>
+  );
+}
+
 

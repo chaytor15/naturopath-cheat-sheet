@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import AppHeader from "@/components/AppHeader";
@@ -36,7 +36,7 @@ type Consult = {
   created_at: string;
 };
 
-export default function ConsultationsPage() {
+function ConsultationsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1372,5 +1372,19 @@ Treatment Plan:
         </div>
       </MainContent>
     </>
+  );
+}
+
+export default function ConsultationsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F7F8F3] text-[#4B543B] text-sm">
+          Loading…
+        </div>
+      }
+    >
+      <ConsultationsPageContent />
+    </Suspense>
   );
 }

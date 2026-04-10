@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, Suspense, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import jsPDF from "jspdf"; // npm install jspdf
 import AuthButton from "@/components/AuthButton";
@@ -199,7 +199,7 @@ function isDoseWithinBottleRange(
 
   return null;
 }
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -3561,5 +3561,19 @@ if (isLockedSelection) {
         )}
       </MainContent>
     </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F7F8F3] text-[#4B543B] text-sm">
+          Loading…
+        </div>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
   );
 }

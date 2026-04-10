@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const PLAN_KEY = "tonic_plan"; // local dev plan flag: "free" | "paid"
 const PENDING_LOCKED_CONDITION_KEY = "tonic_pending_locked_condition"; // optional: used to resume locked selection
 const DEFAULT_RETURN_TO = "/"; // or "/workspace" if that's your real route
 
-export default function PricingPage() {
+function PricingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -125,5 +125,19 @@ export default function PricingPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600 text-sm">
+          Loading…
+        </main>
+      }
+    >
+      <PricingPageContent />
+    </Suspense>
   );
 }

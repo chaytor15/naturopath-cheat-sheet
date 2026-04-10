@@ -10,6 +10,7 @@ import AppHeader from "@/components/AppHeader";
 export default function LoginPage() {
   const router = useRouter();
   const [origin, setOrigin] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const verified = useMemo(() => {
     if (typeof window === "undefined") return false;
@@ -24,8 +25,21 @@ export default function LoginPage() {
   useEffect(() => {
     if (!origin) return;
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data, error: sessionError }) => {
+      if (sessionError) {
+        console.error("Session error:", sessionError);
+        // Don't show error for network issues on initial load
+        if (sessionError.message.includes("fetch")) {
+          setError("Unable to connect to Supabase. Please check your internet connection and ensure your Supabase project is active.");
+        }
+        return;
+      }
       if (data.session) router.replace("/app");
+    }).catch((err) => {
+      console.error("Failed to get session:", err);
+      if (err.message?.includes("fetch") || err.message?.includes("Failed to fetch")) {
+        setError("Network error: Unable to connect to Supabase. Please ensure your Supabase project is active and try again.");
+      }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -36,13 +50,27 @@ export default function LoginPage() {
   }, [origin, router]);
 
   const signInWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: { prompt: "select_account" },
-      },
-    });
+    try {
+      setError(null);
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (oauthError) {
+        console.error("OAuth error:", oauthError);
+        setError(oauthError.message || "Failed to sign in with Google");
+      }
+    } catch (err: any) {
+      console.error("Sign in error:", err);
+      if (err.message?.includes("fetch") || err.message?.includes("Failed to fetch")) {
+        setError("Network error: Unable to connect to Supabase. Please ensure your Supabase project is active and try again.");
+      } else {
+        setError(err.message || "An error occurred during sign in");
+      }
+    }
   };
 
   return (
@@ -60,6 +88,12 @@ export default function LoginPage() {
           {verified && (
             <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
               ✅ Email verified. You can sign in now.
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+              ⚠️ {error}
             </div>
           )}
 

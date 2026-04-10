@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import AppHeader from "@/components/AppHeader";
@@ -28,7 +28,7 @@ type Consultation = {
 
 type ViewMode = "day" | "week" | "month";
 
-export default function CalendarPage() {
+function CalendarPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -39,6 +39,7 @@ export default function CalendarPage() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [clients, setClients] = useState<Array<{ id: string; first_name: string | null; last_name: string | null; full_name: string | null }>>([]);
   const [calendarConnected, setCalendarConnected] = useState(false);
+  const [calendarSyncError, setCalendarSyncError] = useState<string | null>(null);
 
   // Check for new consultation query param
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function CalendarPage() {
         .eq("user_id", user.id)
         .single();
       
+      // Connected when a row exists (.single() returns null data + PGRST116 when none)
       setCalendarConnected(!!calendarData);
 
       // Load bookings (from bookings table, not consultations)
@@ -112,6 +114,60 @@ export default function CalendarPage() {
           client: b.clients,
         }));
         allConsultations.push(...(converted as Consultation[]));
+      }
+
+      // Load Google Calendar events if connected
+      if (calendarData) {
+        try {
+          const now = new Date();
+          const oneMonthFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+          const response = await fetch(
+            `/api/calendar/events?timeMin=${now.toISOString()}&timeMax=${oneMonthFromNow.toISOString()}`
+          );
+          const body = await response.json();
+          const events = body.events || [];
+          setCalendarSyncError(body.error || null);
+          if (body.error) {
+            console.warn("Calendar sync:", body.error);
+          }
+
+          const calendarEvents: Consultation[] = [];
+          for (const event of events) {
+            if (!event.start || !event.end) continue;
+            if (event.start.includes("T")) {
+              calendarEvents.push({
+                id: `google-${event.id}`,
+                client_id: null,
+                user_id: user.id,
+                title: event.title,
+                start_time: event.start,
+                end_time: event.end,
+                notes: event.description || null,
+                location: event.location || event.hangoutLink || null,
+                calendar_event_id: event.id,
+                created_at: new Date().toISOString(),
+              });
+            } else {
+              const dateStr = event.start;
+              calendarEvents.push({
+                id: `google-${event.id}`,
+                client_id: null,
+                user_id: user.id,
+                title: event.title,
+                start_time: `${dateStr}T00:00:00.000Z`,
+                end_time: `${dateStr}T23:59:59.999Z`,
+                notes: event.description || null,
+                location: event.location || event.hangoutLink || null,
+                calendar_event_id: event.id,
+                created_at: new Date().toISOString(),
+              });
+            }
+          }
+          allConsultations.push(...calendarEvents);
+        } catch (error) {
+          console.error("Error fetching Google Calendar events:", error);
+        }
       }
 
       // Also load old consultations for backward compatibility (only if they don't overlap with bookings)
@@ -165,6 +221,10 @@ export default function CalendarPage() {
     loadData();
   }, [router]);
 
+  useEffect(() => {
+    if (!calendarConnected) setCalendarSyncError(null);
+  }, [calendarConnected]);
+
   const handleConnectCalendar = () => {
     window.location.href = "/api/calendar/oauth/authorize";
   };
@@ -177,20 +237,35 @@ export default function CalendarPage() {
     try {
       const response = await fetch("/api/calendar/disconnect", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type");
+      let data: { success?: boolean; error?: string } = {};
+      if (contentType?.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          console.error("Failed to parse response:", parseError);
+          alert(`Failed to disconnect calendar: Invalid response from server`);
+          return;
+        }
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON response:", response.status, text?.slice(0, 200));
+        alert(`Failed to disconnect calendar: Server returned ${response.status}. Check console for details.`);
+        return;
+      }
 
       if (response.ok && data.success) {
         setCalendarConnected(false);
-        // Reload data to refresh the UI
         window.location.reload();
       } else {
         const errorMessage = data.error || "Failed to disconnect calendar";
-        console.error("Disconnect error:", errorMessage);
+        console.error("Disconnect error:", errorMessage, "Response status:", response.status);
         alert(`Failed to disconnect calendar: ${errorMessage}`);
       }
     } catch (error: any) {
@@ -487,15 +562,22 @@ export default function CalendarPage() {
                       {day}
                     </div>
                     <div className="space-y-0.5">
-                      {dayConsultations.slice(0, 3).map((consultation) => (
-                        <div
-                          key={consultation.id}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-[#72B01D]/10 text-[#4B543B] truncate cursor-pointer hover:bg-[#72B01D]/20"
-                          title={`${consultation.title} - ${new Date(consultation.start_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
-                        >
-                          {new Date(consultation.start_time).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} {consultation.title}
-                        </div>
-                      ))}
+                      {dayConsultations.slice(0, 3).map((consultation) => {
+                        const start = new Date(consultation.start_time);
+                        const end = new Date(consultation.end_time);
+                        const sameDay = start.toDateString() === end.toDateString();
+                        const allDay = sameDay && start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 23 && end.getMinutes() === 59;
+                        const timeLabel = allDay ? "All day" : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+                        return (
+                          <div
+                            key={consultation.id}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-[#72B01D]/10 text-[#4B543B] truncate cursor-pointer hover:bg-[#72B01D]/20"
+                            title={`${consultation.title} - ${timeLabel}`}
+                          >
+                            {timeLabel} {consultation.title}
+                          </div>
+                        );
+                      })}
                       {dayConsultations.length > 3 && (
                         <div className="text-[10px] text-slate-500 px-1.5">
                           +{dayConsultations.length - 3} more
@@ -548,6 +630,13 @@ export default function CalendarPage() {
               </button>
             </div>
           </div>
+
+          {calendarSyncError && (
+            <div className="mb-4 px-4 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+              {calendarSyncError}{" "}
+              <a href="/api/calendar/oauth/authorize" className="underline font-medium">Reconnect calendar</a>
+            </div>
+          )}
 
           {/* View Mode Toggle */}
           <div className="flex items-center gap-2 mb-4">
@@ -630,5 +719,19 @@ export default function CalendarPage() {
       )}
 
     </>
+  );
+}
+
+export default function CalendarPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F7F8F3] text-[#4B543B] text-sm">
+          Loading…
+        </div>
+      }
+    >
+      <CalendarPageContent />
+    </Suspense>
   );
 }

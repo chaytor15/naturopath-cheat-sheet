@@ -9,11 +9,3 @@ ADD COLUMN IF NOT EXISTS country TEXT;
 
 -- Add index on country for potential filtering
 CREATE INDEX IF NOT EXISTS idx_clients_country ON clients(country);
-
-
-
-
-
-
-
-
