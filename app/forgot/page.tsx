@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { getAuthCallbackUrl } from "@/lib/authRedirect";
+import { mapPasswordResetErrorForUser } from "@/lib/signupErrors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -21,7 +22,7 @@ export default function ForgotPasswordPage() {
     setBusy(false);
 
     if (error) {
-      setError(error.message);
+      setError(mapPasswordResetErrorForUser(error));
       return;
     }
 
@@ -56,7 +57,7 @@ export default function ForgotPasswordPage() {
             </label>
             <input
               type="email"
-              className="w-full rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-sm mb-4"
+              className="w-full rounded-xl border border-slate-200 bg-sky-50/80 px-3 py-2 text-sm text-slate-900 mb-4"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"

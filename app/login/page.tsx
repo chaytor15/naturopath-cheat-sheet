@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getAuthCallbackUrl, getAuthRedirectOrigin } from "@/lib/authRedirect";
 import { ACCOUNT_EXISTS, mapSignupErrorForUser } from "@/lib/signupErrors";
+import { isEmailSignupDuplicateResponse } from "@/lib/signupResult";
+import {
+  PASSWORD_RULES,
+  passwordMeetsPolicy,
+  passwordPolicyFailureMessage,
+} from "@/lib/passwordPolicy";
+import { cn } from "@/lib/utils";
 import AppHeader from "@/components/AppHeader";
 
 const inputClass =
@@ -84,6 +91,13 @@ function LoginPageContent() {
     setMode("signup");
   };
 
+  const resetSignupSuccess = () => {
+    setSignupSent(false);
+    setPassword("");
+    setConfirmPassword("");
+    setSignupError(null);
+  };
+
   const signInWithGoogle = async () => {
     try {
       setError(null);
@@ -131,8 +145,8 @@ function LoginPageContent() {
       setSignupError("Passwords do not match.");
       return;
     }
-    if (password.length < 6) {
-      setSignupError("Password must be at least 6 characters.");
+    if (!passwordMeetsPolicy(password)) {
+      setSignupError(passwordPolicyFailureMessage());
       return;
     }
 
@@ -151,7 +165,13 @@ function LoginPageContent() {
       return;
     }
 
-    if (!data.user) {
+    if (isEmailSignupDuplicateResponse({ user: data.user })) {
+      // Clear any partial session Supabase may attach on duplicate signup attempts.
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        /* ignore */
+      }
       setSignupError(ACCOUNT_EXISTS);
       return;
     }
@@ -160,6 +180,15 @@ function LoginPageContent() {
   };
 
   const isSignup = mode === "signup";
+  const passwordsMatch =
+    confirmPassword.length > 0 && password === confirmPassword;
+  const passwordsMismatch =
+    confirmPassword.length > 0 && password !== confirmPassword;
+  const signupFormValid =
+    !!email.trim() &&
+    !!origin &&
+    passwordMeetsPolicy(password) &&
+    passwordsMatch;
 
   return (
     <>
@@ -170,9 +199,11 @@ function LoginPageContent() {
             {isSignup ? "Create an account" : "Sign in to tonic"}
           </h1>
           <p className="text-[12px] text-slate-600 mb-4">
-            {isSignup
-              ? "Create with Google or email. You’ll verify via a link."
-              : "Sign in with Google or email."}
+            {isSignup && signupSent
+              ? "We sent a verification link. Open it to confirm your email, then sign in."
+              : isSignup
+                ? "Create with Google or email. You’ll verify via a link."
+                : "Sign in with Google or email."}
           </p>
 
           {verified && !isSignup && (
@@ -202,34 +233,31 @@ function LoginPageContent() {
 
           {isSignup && signupSent ? (
             <div className="space-y-3">
-              <button
-                type="button"
-                onClick={signInWithGoogle}
-                className="w-full rounded-xl bg-[#2E332B] px-4 py-3 text-white text-sm font-semibold hover:bg-black transition"
-              >
-                Continue with Google
-              </button>
-              <div className="my-4 flex items-center gap-3">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                  or
-                </span>
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
-                <p className="mb-2">
-                  ✅ Account created. Please check your email and click the confirmation link, then return here to sign in.
+                <p className="mb-2 font-medium text-emerald-950">
+                  Almost done — confirm your email
                 </p>
-                <p>
-                  Check your inbox for <b>{email}</b> and click the verification link.
+                <p className="mb-2">
+                  We sent a link to <b>{email}</b>. Click it to verify your account,
+                  then return here and sign in.
+                </p>
+                <p className="text-[12px] text-emerald-800/90">
+                  No message yet? Check spam or wait a minute — delivery can be delayed.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={goSignInMode}
-                className="w-full rounded-xl bg-[#2E332B] px-4 py-3 text-white text-sm font-semibold hover:bg-black transition"
+                className="w-full rounded-xl bg-[#72B01D] px-4 py-3 text-white text-sm font-semibold hover:bg-[#6AA318] transition"
               >
                 Back to sign in
+              </button>
+              <button
+                type="button"
+                onClick={resetSignupSuccess}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Use a different email
               </button>
             </div>
           ) : (
@@ -285,6 +313,27 @@ function LoginPageContent() {
                       }}
                       autoComplete={isSignup ? "new-password" : "current-password"}
                     />
+                    {isSignup && (
+                      <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+                        {PASSWORD_RULES.map((rule) => {
+                          const ok = rule.test(password);
+                          return (
+                            <li
+                              key={rule.id}
+                              className={cn(
+                                "flex items-center gap-1.5",
+                                ok ? "text-emerald-700" : "text-slate-500"
+                              )}
+                            >
+                              <span className="tabular-nums w-3 shrink-0">
+                                {ok ? "✓" : "○"}
+                              </span>
+                              {rule.label}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </div>
                   {isSignup && (
                     <div>
@@ -294,7 +343,13 @@ function LoginPageContent() {
                       <input
                         id="auth-confirm"
                         type="password"
-                        className={inputClass}
+                        className={cn(
+                          inputClass,
+                          passwordsMismatch &&
+                            "border-red-300 bg-red-50/50 focus-visible:ring-red-200",
+                          passwordsMatch &&
+                            "border-emerald-300 bg-emerald-50/40"
+                        )}
                         value={confirmPassword}
                         onChange={(e) => {
                           setConfirmPassword(e.target.value);
@@ -302,6 +357,18 @@ function LoginPageContent() {
                         }}
                         autoComplete="new-password"
                       />
+                      {confirmPassword.length > 0 && (
+                        <p
+                          className={cn(
+                            "mt-1.5 text-[11px] font-medium",
+                            passwordsMatch ? "text-emerald-700" : "text-red-700"
+                          )}
+                        >
+                          {passwordsMatch
+                            ? "Passwords match."
+                            : "Passwords do not match."}
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -310,13 +377,7 @@ function LoginPageContent() {
                       <button
                         type="button"
                         onClick={signUpWithEmail}
-                        disabled={
-                          busy ||
-                          !email.trim() ||
-                          !password ||
-                          !confirmPassword ||
-                          !origin
-                        }
+                        disabled={busy || !signupFormValid}
                         className="w-full rounded-xl bg-[#72B01D] px-4 py-3 text-white text-sm font-semibold hover:bg-[#6AA318] transition disabled:opacity-50"
                       >
                         {busy ? "Creating account…" : "Create account"}

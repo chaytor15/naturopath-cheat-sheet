@@ -32,4 +32,25 @@ export function mapSignupErrorForUser(error: {
   return error.message || "Something went wrong. Please try again.";
 }
 
+export const RATE_LIMIT_FRIENDLY =
+  "Too many emails were sent from this address. Please wait a few minutes and try again.";
+
+/** Password reset / magic-link style errors (show friendly copy, not raw Supabase wording). */
+export function mapPasswordResetErrorForUser(error: {
+  message?: string;
+  code?: string;
+}): string {
+  const m = (error.message || "").toLowerCase();
+  if (
+    m.includes("only request this after") ||
+    m.includes("for security purposes") ||
+    m.includes("too many requests") ||
+    m.includes("rate limit") ||
+    m.includes("email rate limit")
+  ) {
+    return RATE_LIMIT_FRIENDLY;
+  }
+  return error.message || "Something went wrong. Please try again.";
+}
+
 export { ACCOUNT_EXISTS };
