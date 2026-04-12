@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:migrate": "node scripts/run-migration.js"
+    "db:migrate": "node scripts/run-migration.js",
+    "db:migrate:all": "node scripts/run-all-migrations.js",
+    "db:migrate:all:no-indexes": "node scripts/run-all-migrations.js --skip-missing-indexes",
+    "db:migrate:onboarding": "node scripts/run-migration-file.js add_onboarding_and_practice_address.sql",
+    "db:migrate:profiles-rls": "node scripts/run-migration-file.js fix_profiles_rls_self_access.sql"
   },
   "dependencies": {
     "@radix-ui/react-select": "^2.2.6",

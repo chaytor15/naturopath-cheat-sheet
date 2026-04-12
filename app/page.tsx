@@ -1,8 +1,10 @@
 // app/page.tsx - Landing page
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import AppHeader from "@/components/AppHeader";
 
 const features = [
@@ -76,6 +78,16 @@ const faqs = [
 ];
 
 export default function LandingPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        router.replace("/dashboard");
+      }
+    });
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-[#F7F8F3] text-slate-900">
       <AppHeader />
@@ -111,17 +123,22 @@ export default function LandingPage() {
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="/login"
+                href="/login?mode=signup"
                 className="inline-flex items-center justify-center rounded-full bg-[#142200] px-8 py-3 text-[13px] font-semibold text-white shadow-sm shadow-[#8ED08155] transition hover:bg-[#6aa318] hover:shadow-md hover:-translate-y-0.5"
               >
-                Get started
+                Create account
               </Link>
-
               <Link
-                href="/app"
+                href="/login"
+                className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white/80 px-8 py-3 text-[13px] font-semibold text-[#4B543B] shadow-sm transition hover:border-[#4B543B] hover:shadow-md"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/dashboard"
                 className="inline-flex items-center justify-center text-[13px] font-medium text-slate-700 hover:text-slate-900"
               >
-                View workspace
+                Open dashboard
                 <span className="ml-1.5 text-lg" aria-hidden>
                   ↗
                 </span>

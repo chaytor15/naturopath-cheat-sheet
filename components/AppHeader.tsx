@@ -97,7 +97,10 @@ export default function AppHeader() {
     <header className="fixed top-0 inset-x-0 z-40 h-[60px] bg-white/40 backdrop-blur-md border-b border-white/60 shadow-sm">
       <div className="h-full px-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link
+          href={hasSession ? "/dashboard" : "/"}
+          className="flex items-center gap-2"
+        >
           <div className="h-7 w-7 rounded-xl bg-[#142200] flex items-center justify-center text-white text-xs font-semibold shadow-sm">
             t
           </div>

@@ -4,7 +4,11 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getAuthCallbackUrl, getAuthRedirectOrigin } from "@/lib/authRedirect";
-import { ACCOUNT_EXISTS, mapSignupErrorForUser } from "@/lib/signupErrors";
+import {
+  ACCOUNT_EXISTS,
+  mapSignupErrorForUser,
+  SIGNUP_RETRY_AFTER_FALSE_DUPLICATE,
+} from "@/lib/signupErrors";
 import { isEmailSignupDuplicateResponse } from "@/lib/signupResult";
 import {
   PASSWORD_RULES,
@@ -36,6 +40,19 @@ function LoginPageContent() {
     return new URLSearchParams(window.location.search).get("verified") === "1";
   }, []);
 
+  const postLoginPath = useMemo(() => {
+    const raw = searchParams.get("next");
+    if (
+      typeof raw === "string" &&
+      raw.startsWith("/") &&
+      !raw.startsWith("//") &&
+      !raw.includes(":")
+    ) {
+      return raw.split("?")[0];
+    }
+    return "/dashboard";
+  }, [searchParams]);
+
   useEffect(() => {
     setOrigin(getAuthRedirectOrigin());
   }, []);
@@ -57,7 +74,7 @@ function LoginPageContent() {
         }
         return;
       }
-      if (data.session) router.replace("/app");
+      if (data.session) router.replace(postLoginPath);
     }).catch((err) => {
       console.error("Failed to get session:", err);
       if (err.message?.includes("fetch") || err.message?.includes("Failed to fetch")) {
@@ -68,18 +85,19 @@ function LoginPageContent() {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) router.replace("/app");
+      if (session) router.replace(postLoginPath);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [origin, router]);
+  }, [origin, router, postLoginPath]);
 
   const goSignInMode = () => {
     setSignupSent(false);
     setSignupError(null);
     setError(null);
     setConfirmPassword("");
-    router.replace("/login");
+    const n = searchParams.get("next");
+    router.replace(n ? `/login?next=${encodeURIComponent(n)}` : "/login");
     setMode("signin");
   };
 
@@ -87,7 +105,10 @@ function LoginPageContent() {
     setError(null);
     setSignupError(null);
     setSignupSent(false);
-    router.replace("/login?mode=signup");
+    const n = searchParams.get("next");
+    router.replace(
+      n ? `/login?mode=signup&next=${encodeURIComponent(n)}` : "/login?mode=signup"
+    );
     setMode("signup");
   };
 
@@ -172,7 +193,27 @@ function LoginPageContent() {
       } catch {
         /* ignore */
       }
-      setSignupError(ACCOUNT_EXISTS);
+
+      let duplicateMessage = ACCOUNT_EXISTS;
+      try {
+        const res = await fetch("/api/auth/email-registered", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email.trim() }),
+        });
+        if (res.ok) {
+          const j = (await res.json()) as { registered?: boolean };
+          if (j.registered === false) {
+            duplicateMessage = SIGNUP_RETRY_AFTER_FALSE_DUPLICATE;
+          }
+        } else if (res.status === 503) {
+          duplicateMessage = SIGNUP_RETRY_AFTER_FALSE_DUPLICATE;
+        }
+      } catch {
+        /* keep ACCOUNT_EXISTS */
+      }
+
+      setSignupError(duplicateMessage);
       return;
     }
 

@@ -12,6 +12,8 @@ const EXCLUDED_PATHS = [
   "/forgot",
   "/pricing",
   "/landingpage",
+  "/dashboard",
+  "/onboarding",
   "/auth/callback",
   "/auth/reset",
 ];

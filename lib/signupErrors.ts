@@ -1,7 +1,18 @@
-const ACCOUNT_EXISTS =
+export const ACCOUNT_EXISTS =
   "An account with this email already exists. Please sign in instead.";
 
-/** Map Supabase signUp errors to user-facing copy (avoid rate-limit / security wording). */
+/** Rate limits are not "email taken" — show this on signUp instead of ACCOUNT_EXISTS. */
+export const SIGNUP_RATE_LIMIT_MESSAGE =
+  "Too many signup attempts for this email. Please wait a few minutes and try again.";
+
+/**
+ * GoTrue sometimes returns a duplicate-shaped response even when auth.users has no row
+ * (e.g. after a delete + cooldown). Prefer retry instead of "already exists" when admin says free.
+ */
+export const SIGNUP_RETRY_AFTER_FALSE_DUPLICATE =
+  "Signup did not complete. If you recently removed this account, wait a minute and try again.";
+
+/** Map Supabase signUp errors to user-facing copy. */
 export function mapSignupErrorForUser(error: {
   message?: string;
   code?: string;
@@ -16,7 +27,7 @@ export function mapSignupErrorForUser(error: {
     m.includes("rate limit") ||
     m.includes("email rate limit")
   ) {
-    return ACCOUNT_EXISTS;
+    return SIGNUP_RATE_LIMIT_MESSAGE;
   }
 
   if (
@@ -52,5 +63,3 @@ export function mapPasswordResetErrorForUser(error: {
   }
   return error.message || "Something went wrong. Please try again.";
 }
-
-export { ACCOUNT_EXISTS };
